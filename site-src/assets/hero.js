@@ -31,3 +31,13 @@
   }
   play();
 })();
+
+// Agent cards: the glow follows the pointer.
+(function () {
+  document.querySelectorAll(".agent-card").forEach(function (card) {
+    card.addEventListener("pointermove", function (e) {
+      var r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", Math.round(((e.clientX - r.left) / r.width) * 100) + "%");
+    });
+  });
+})();
