@@ -3,7 +3,8 @@
 // the pages can't drift from the code. Plain Node, no dependencies beyond
 // esbuild (already an api devDependency).
 import { createRequire } from "node:module";
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { pages, home } from "../site-src/pages.mjs";
@@ -14,6 +15,9 @@ const out = path.join(root, "site");
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(path.join(root, "site-src/assets"), path.join(out, "assets"), { recursive: true });
+// Browsers cache /assets for a day (deploy.sh), so every reference carries the file's content
+// hash; a changed file gets a new URL and the old cached copy is never used again.
+const asset = (name) => `/assets/${name}?v=${createHash("sha256").update(readFileSync(path.join(root, "site-src/assets", name))).digest("hex").slice(0, 10)}`;
 
 await build({ entryPoints: [path.join(root, "api/src/agents/index.ts")], bundle: true, platform: "node", format: "esm", outfile: path.join(root, "api/dist/site-agents.js"), target: "node22", logLevel: "silent" });
 const { agents } = await import(pathToFileURL(path.join(root, "api/dist/site-agents.js")));
@@ -35,12 +39,12 @@ const ICONS = {
 };
 
 function idCard(p) {
-  if (p.id === "group") return `<div class="idcard" aria-label="Group account card, synthetic"><span class="tag">SYNTHETIC</span>
-    <div class="plan">Group account <small>Prairie Health Plans</small></div>
+  if (p.id === "group") return `<div class="idcard" aria-label="Group account card, synthetic">
+    <div class="plan"><span>Group account <small>Prairie Health Plans</small></span><span class="tag">SYNTHETIC</span></div>
     <div class="name">Cedar Rapids Machine Works</div>
     <dl><dt>Group</dt><dd>G-44812</dd><dt>Administrator</dt><dd>R. Castillo</dd><dt>Renewal</dt><dd>01/01/2027</dd><dt>Enrolled</dt><dd>183 subscribers</dd></dl></div>`;
-  return `<div class="idcard" aria-label="Member ID card, synthetic"><span class="tag">SYNTHETIC</span>
-    <div class="plan"><span>Prairie PPO 1500</span><span class="chip" aria-hidden="true"></span></div>
+  return `<div class="idcard" aria-label="Member ID card, synthetic">
+    <div class="plan"><span>Prairie PPO 1500</span><span class="tag">SYNTHETIC</span><span class="chip" aria-hidden="true"></span></div>
     <div class="name">Dana Whitfield</div>
     <dl><dt>Member ID</dt><dd>W20419873</dd><dt>Group</dt><dd>G-44812</dd><dt>PCP copay</dt><dd>$25</dd><dt>Rx BIN</dt><dd>610014</dd></dl></div>`;
 }
@@ -56,8 +60,8 @@ function layout({ title, description, body, current, noindex = true }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 ${noindex ? '<meta name="robots" content="noindex">' : ""}
-<link rel="stylesheet" href="/assets/fonts.css">
-<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="${asset("fonts.css")}">
+<link rel="stylesheet" href="${asset("site.css")}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23c7741b'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -115,7 +119,7 @@ function demoPage(p) {
     </div>
   </section>
 </main>
-<script src="/assets/chat.js" defer></script>`;
+<script src="${asset("chat.js")}" defer></script>`;
   return layout({ title: `${p.nav} · Wellmark agent demos`, description: p.tagline, body, current: p.id });
 }
 
@@ -170,7 +174,7 @@ function homePage() {
     <ul class="facts">${home.facts.map(([k, v]) => `<li><b>${esc(k)}</b><span>${v}</span></li>`).join("")}</ul>
   </div>
 </div></section>
-<script src="/assets/hero.js" defer></script>`;
+<script src="${asset("hero.js")}" defer></script>`;
   return layout({ title: "Wellmark agent demos", description: home.lede, body, current: null });
 }
 
