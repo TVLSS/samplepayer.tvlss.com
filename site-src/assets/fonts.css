@@ -1,0 +1,5 @@
+/* Self-hosted latin subsets of Instrument Serif, Manrope and JetBrains Mono (SIL Open Font License). */
+@font-face { font-family: 'Instrument Serif'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/InstrumentSerif-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/JetBrainsMono-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('/assets/fonts/JetBrainsMono-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 500 800; font-display: swap; src: url('/assets/fonts/Manrope-500-800-normal.woff2') format('woff2'); }

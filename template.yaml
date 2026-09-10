@@ -29,6 +29,26 @@ Parameters:
     Type: Number
     Default: 5
     Description: Caps simultaneous chats, which caps Bedrock spend.
+  DailyBudgetUsd:
+    Type: Number
+    Default: 5
+    Description: Hard cap on estimated model spend per UTC day. Enforced in the Lambda before every turn.
+  PriceInPerMtok:
+    Type: Number
+    Default: 3
+    Description: Assumed input price, USD per million tokens. Set above list price so the cap errs early.
+  PriceOutPerMtok:
+    Type: Number
+    Default: 15
+    Description: Assumed output price, USD per million tokens.
+  IpTurnsPerHour:
+    Type: Number
+    Default: 40
+    Description: Per-visitor fairness limit so one script cannot spend the whole day's budget.
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: Where budget and traffic alerts go. Empty disables the alerts.
   Backend:
     Type: String
     Default: typescript
@@ -37,6 +57,7 @@ Parameters:
 
 Conditions:
   UsePython: !Equals [!Ref Backend, python]
+  HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
 
 Resources:
   SiteBucket:
@@ -95,6 +116,11 @@ Resources:
         Variables:
           MODEL_ID: !Ref ModelId
           MAX_OUTPUT_TOKENS: !Ref MaxOutputTokens
+          USAGE_TABLE: !Ref UsageTable
+          DAILY_BUDGET_USD: !Ref DailyBudgetUsd
+          PRICE_IN_PER_MTOK: !Ref PriceInPerMtok
+          PRICE_OUT_PER_MTOK: !Ref PriceOutPerMtok
+          IP_TURNS_PER_HOUR: !Ref IpTurnsPerHour
       FunctionUrlConfig:
         AuthType: AWS_IAM
         InvokeMode: RESPONSE_STREAM
@@ -107,6 +133,9 @@ Resources:
               Resource:
                 - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*"
                 - "arn:aws:bedrock:*::foundation-model/anthropic.*"
+            - Effect: Allow
+              Action: [dynamodb:UpdateItem, dynamodb:GetItem]
+              Resource: !GetAtt UsageTable.Arn
 
   ChatFunctionUrlPermission:
     Type: AWS::Lambda::Permission
@@ -145,6 +174,11 @@ Resources:
         Variables:
           MODEL_ID: !Ref ModelId
           MAX_OUTPUT_TOKENS: !Ref MaxOutputTokens
+          USAGE_TABLE: !Ref UsageTable
+          DAILY_BUDGET_USD: !Ref DailyBudgetUsd
+          PRICE_IN_PER_MTOK: !Ref PriceInPerMtok
+          PRICE_OUT_PER_MTOK: !Ref PriceOutPerMtok
+          IP_TURNS_PER_HOUR: !Ref IpTurnsPerHour
       FunctionUrlConfig:
         AuthType: AWS_IAM
         InvokeMode: BUFFERED
@@ -157,6 +191,9 @@ Resources:
               Resource:
                 - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*"
                 - "arn:aws:bedrock:*::foundation-model/anthropic.*"
+            - Effect: Allow
+              Action: [dynamodb:UpdateItem, dynamodb:GetItem]
+              Resource: !GetAtt UsageTable.Arn
 
   ChatFunctionPyUrlPermission:
     Type: AWS::Lambda::Permission
@@ -180,6 +217,108 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${ChatFunctionPy}"
       RetentionInDays: 30
+
+  # One item per UTC day holds estimated spend; per-visitor hourly counters expire via TTL.
+  UsageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }]
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Condition: HasEmail
+    Properties:
+      Subscription:
+        - Endpoint: !Ref NotificationEmail
+          Protocol: email
+
+  # Second line of defence: independent of the in-Lambda counter.
+  TrafficAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasEmail
+    Properties:
+      AlarmDescription: More than 150 chat invocations in an hour on wellmark.tvlss.com
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Dimensions: [{ Name: FunctionName, Value: !Ref ChatFunction }]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 150
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  ErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasEmail
+    Properties:
+      AlarmDescription: Chat Lambda errors on wellmark.tvlss.com
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref ChatFunction }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  # Billing-side backstop. Cost data lags up to a day, so the Lambda cap is the real limit.
+  DailyBudget:
+    Type: AWS::Budgets::Budget
+    Condition: HasEmail
+    Properties:
+      Budget:
+        BudgetName: !Sub "${AWS::StackName}-daily"
+        BudgetType: COST
+        TimeUnit: DAILY
+        BudgetLimit: { Amount: !Ref DailyBudgetUsd, Unit: USD }
+        CostFilters:
+          TagKeyValue: [!Sub "aws:cloudformation:stack-name$${AWS::StackName}"]
+      NotificationsWithSubscribers:
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref NotificationEmail }]
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref NotificationEmail }]
+
+  SecurityHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${AWS::StackName}-headers"
+        SecurityHeadersConfig:
+          StrictTransportSecurity: { AccessControlMaxAgeSec: 31536000, IncludeSubdomains: false, Preload: false, Override: true }
+          ContentTypeOptions: { Override: true }
+          FrameOptions: { FrameOption: DENY, Override: true }
+          ReferrerPolicy: { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
+          ContentSecurityPolicy:
+            Override: true
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        CustomHeadersConfig:
+          Items:
+            - { Header: Permissions-Policy, Value: "camera=(), microphone=(), geolocation=(), payment=()", Override: true }
+
+  LogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-logs-${AWS::AccountId}"
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerPreferred }]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules: [{ Id: expire, Status: Enabled, ExpirationInDays: 30 }]
 
   ChatFunctionLogs:
     Type: AWS::Logs::LogGroup
@@ -235,6 +374,10 @@ Resources:
         IPV6Enabled: true
         PriceClass: PriceClass_100
         DefaultRootObject: index.html
+        Logging:
+          Bucket: !GetAtt LogBucket.DomainName
+          Prefix: cloudfront/
+          IncludeCookies: false
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
@@ -262,7 +405,7 @@ Resources:
           CachedMethods: [GET, HEAD]
           Compress: true
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # Managed-CachingOptimized
-          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03   # Managed-SecurityHeadersPolicy
+          ResponseHeadersPolicyId: !Ref SecurityHeaders
           FunctionAssociations:
             - EventType: viewer-request
               FunctionARN: !GetAtt UrlRewriteFunction.FunctionMetadata.FunctionARN
@@ -275,6 +418,7 @@ Resources:
             Compress: false
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad   # Managed-CachingDisabled
             OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac   # Managed-AllViewerExceptHostHeader
+            ResponseHeadersPolicyId: !Ref SecurityHeaders
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 404
@@ -322,3 +466,5 @@ Outputs:
     Value: !Ref ChatFunctionPy
   ActiveBackend:
     Value: !Ref Backend
+  UsageTableName:
+    Value: !Ref UsageTable

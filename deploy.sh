@@ -24,7 +24,7 @@ sam build --region "$REGION" > /dev/null
 
 echo "== sam deploy"
 sam deploy --region "$REGION" --no-progressbar \
-  --parameter-overrides "CertificateArn=$CERTIFICATE_ARN" "HostedZoneId=$HOSTED_ZONE_ID" ${DOMAIN_NAME:+"DomainName=$DOMAIN_NAME"} "$@"
+  --parameter-overrides "CertificateArn=$CERTIFICATE_ARN" "HostedZoneId=$HOSTED_ZONE_ID" ${DOMAIN_NAME:+"DomainName=$DOMAIN_NAME"} ${NOTIFICATION_EMAIL:+"NotificationEmail=$NOTIFICATION_EMAIL"} "$@"
 
 BUCKET=$(aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='SiteBucketName'].OutputValue" --output text)
 DIST=$(aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)

@@ -75,6 +75,30 @@ to the Lambda URL, POST bodies must carry an `x-amz-content-sha256` header (the 
 - **Sonnet 5 by default.** Measured 8 to 12 s per answer with three tool rounds; first text at
   5 to 8 s. Opus 5 is a parameter flip if quality matters more than latency for a given demo.
 
+## Spend cap and alerts
+
+Bedrock has no spend limit, so the cap is enforced in the Lambda. Every turn first reserves an
+estimated cost in a DynamoDB daily counter with a conditional update (atomic across concurrent
+turns), then settles to the real token cost when the turn ends. Once the UTC day's `DailyBudgetUsd`
+(default $5) is committed, `/api/chat` returns 429 with a plain message and the page shows it.
+`GET /api/budget` reports the day's spend; the chat bar shows it.
+
+- Prices are parameters (`PriceInPerMtok` 3, `PriceOutPerMtok` 15), set above Sonnet 5 list price
+  so the estimate stops early rather than late. Fix them if you switch models.
+- Per-visitor limit: `IpTurnsPerHour` (40), keyed on a hash of the CloudFront viewer address.
+- With `NOTIFICATION_EMAIL` in `.env`: an SNS email alarm at 150 invocations/hour, an error alarm,
+  and an AWS Budget (daily, filtered to this stack's tag) at 80% and 100%. Cost data lags up to a
+  day, so the budget is the backstop, not the limit. Confirm the SNS subscription email once.
+- Reset today's counter if you need to: delete item `day#YYYY-MM-DD` from the usage table.
+
+## Security posture
+
+CSP (`default-src 'self'`, fonts self-hosted), HSTS, nosniff, frame-ancestors none, TLS 1.2+,
+IAM-only function URLs behind CloudFront OAC, private S3 with OAC, least-privilege Lambda roles
+(Bedrock invoke + one DynamoDB table), CloudFront access logs kept 30 days, no server-side storage
+of conversations, Bedrock invocation logging off. Review notes from 2026-09-10 are in the commit
+history.
+
 ## Not built (say so in the room)
 
 Authentication, real system adapters, audit logging, PHI handling / HIPAA account controls,

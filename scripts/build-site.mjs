@@ -56,9 +56,7 @@ function layout({ title, description, body, current, noindex = true }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 ${noindex ? '<meta name="robots" content="noindex">' : ""}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/assets/fonts.css">
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23c7741b'/%3E%3C/svg%3E">
 </head>
@@ -88,7 +86,7 @@ function demoPage(p) {
   </div>
   <div class="demo">
     <section class="panel chat" data-agent="${p.id}" data-greeting="${esc(p.greeting)}" aria-label="Chat with the ${esc(agent.title.toLowerCase())}">
-      <div class="chat-tools"><b><i aria-hidden="true"></i>${esc(agent.title)} · signed in as ${esc(p.persona.split(" ·")[0])}</b><button type="button">Start over</button></div>
+      <div class="chat-tools"><b><i aria-hidden="true"></i>${esc(agent.title)} · signed in as ${esc(p.persona.split(" ·")[0])}</b><span class="budget" title="Estimated model spend today against the demo cap"></span><button type="button">Start over</button></div>
       <div class="transcript" aria-live="polite"><div class="msg agent">${esc(p.greeting)}</div></div>
       <div class="samples" aria-label="Sample questions">${p.samples.map((s) => `<button type="button">${esc(s)}</button>`).join("")}</div>
       <form class="composer"><label class="visually-hidden" for="q" hidden>Your question</label><textarea id="q" rows="1" placeholder="Ask about ${esc(p.placeholder)}" autocomplete="off"></textarea><button class="btn" type="submit">Send</button></form>

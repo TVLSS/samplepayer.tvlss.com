@@ -26,7 +26,7 @@ export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "tool_call"; id: string; name: string; system: string; kind: "read" | "write"; input: unknown }
   | { type: "tool_result"; id: string; name: string; ok: boolean; summary: string; output: unknown; ms: number }
-  | { type: "done"; stopReason: string; usage: { inputTokens: number; outputTokens: number }; model: string }
+  | { type: "done"; stopReason: string; usage: { inputTokens: number; outputTokens: number }; model: string; budget?: { spent: number; cap: number } }
   | { type: "error"; message: string };
 
 export interface ClientMessage { role: "user" | "assistant"; content: string }
@@ -47,7 +47,7 @@ function summarize(output: unknown): string {
   return String(output);
 }
 
-export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (e: ChatEvent) => void): Promise<void> {
+export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (e: ChatEvent) => void | Promise<void>): Promise<void> {
   const toolsByName = new Map(agent.tools.map((t) => [t.name, t]));
   const messages: Message[] = history.map((m) => ({ role: m.role, content: [{ text: m.content }] }));
   let totalIn = 0;
@@ -100,7 +100,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
 
     const toolUses = assistantContent.filter((b) => b.toolUse).map((b) => b.toolUse!);
     if (stopReason !== "tool_use" || toolUses.length === 0) {
-      emit({ type: "done", stopReason, usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
+      await emit({ type: "done", stopReason, usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
       return;
     }
 
@@ -127,5 +127,5 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
     messages.push({ role: "user", content: results });
   }
   emit({ type: "text", delta: "\n\nI stopped after several system lookups without reaching an answer. Try narrowing the question." });
-  emit({ type: "done", stopReason: "max_tool_rounds", usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
+  await emit({ type: "done", stopReason: "max_tool_rounds", usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
 }

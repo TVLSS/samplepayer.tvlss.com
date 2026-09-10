@@ -6,13 +6,14 @@
 
 import { agents } from "./agents/index.js";
 import { runTurn, type ChatEvent, type ClientMessage } from "./runtime.js";
+import { reserve, settle, status, turnCost } from "./budget.js";
 
 declare const awslambda: {
   streamifyResponse: (fn: (event: LambdaUrlEvent, stream: ResponseStream, ctx: unknown) => Promise<void>) => unknown;
   HttpResponseStream: { from: (stream: ResponseStream, meta: { statusCode: number; headers: Record<string, string> }) => ResponseStream };
 };
 interface ResponseStream { write: (chunk: string) => void; end: () => void }
-interface LambdaUrlEvent { rawPath?: string; requestContext?: { http?: { method?: string } }; body?: string; isBase64Encoded?: boolean }
+interface LambdaUrlEvent { rawPath?: string; headers?: Record<string, string>; requestContext?: { http?: { method?: string; sourceIp?: string } }; body?: string; isBase64Encoded?: boolean }
 
 const MAX_TURNS = 24;
 const MAX_MESSAGE_CHARS = 2000;
@@ -60,6 +61,7 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
   if (method === "GET" && path === "/api/agents") {
     return json(responseStream, 200, Object.values(agents).map((a) => ({ id: a.id, title: a.title, persona: a.persona, tools: a.tools.map((t) => ({ name: t.name, system: t.system, kind: t.kind, description: t.description })) })));
   }
+  if (method === "GET" && path === "/api/budget") return json(responseStream, 200, await status());
   if (method !== "POST" || path !== "/api/chat") return json(responseStream, 404, { error: "Not found" });
 
   let parsed: unknown;
@@ -67,10 +69,20 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
   const v = validate(parsed);
   if (typeof v === "string") return json(responseStream, 400, { error: v });
 
+  // CloudFront puts the viewer's address first in x-forwarded-for.
+  const viewerIp = (event.headers?.["x-forwarded-for"] ?? "").split(",")[0].trim() || event.requestContext?.http?.sourceIp;
+  const r = await reserve(viewerIp);
+  if (!r.ok) return json(responseStream, r.status, { error: r.message });
+
   const stream = awslambda.HttpResponseStream.from(responseStream, { statusCode: 200, headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" } });
   const emit = (e: ChatEvent) => stream.write(JSON.stringify(e) + "\n");
   try {
-    await runTurn(agents[v.agentId], v.messages, emit);
+    await runTurn(agents[v.agentId], v.messages, async (e) => {
+      if (e.type === "done") {
+        const spent = await settle(r.day, turnCost(e.usage)).catch(() => -1);
+        emit({ ...e, budget: spent >= 0 ? { spent, cap: Number(process.env.DAILY_BUDGET_USD ?? 5) } : undefined });
+      } else emit(e);
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("chat error", message);

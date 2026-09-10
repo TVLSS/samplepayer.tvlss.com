@@ -12,6 +12,9 @@
   var entries = document.querySelector(".entries");
   var counter = document.querySelector(".ledger-head span");
   var chips = document.querySelectorAll(".systems-list .chip");
+  var budgetEl = root.querySelector(".chat-tools .budget");
+  function showBudget(b) { if (budgetEl && b && typeof b.spent === "number") budgetEl.textContent = "Today $" + b.spent.toFixed(2) + " of $" + b.cap; }
+  fetch("/api/budget").then(function (r) { return r.ok ? r.json() : null; }).then(showBudget).catch(function () {});
   var history = [];
   var busy = false;
   var turn = 0;
@@ -90,7 +93,7 @@
           else if (ev.type === "tool_call") { working.textContent = "Checking " + ev.system.replace(/_/g, " ").toLowerCase(); addLedger(ev); }
           else if (ev.type === "tool_result") resolveLedger(ev);
           else if (ev.type === "error") { throw new Error(ev.message); }
-          else if (ev.type === "done") { addLedger({ type: "turn", n: turn, text: ev.usage.inputTokens + " in / " + ev.usage.outputTokens + " out tokens" }); }
+          else if (ev.type === "done") { addLedger({ type: "turn", n: turn, text: ev.usage.inputTokens + " in / " + ev.usage.outputTokens + " out tokens" }); showBudget(ev.budget); }
         }
       }
       if (cursor.parentNode) cursor.remove();

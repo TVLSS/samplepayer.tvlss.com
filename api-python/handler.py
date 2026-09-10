@@ -11,6 +11,7 @@ from typing import Any
 
 from agents import AGENTS
 from runtime import run_turn
+from budget import reserve, settle, status, turn_cost, CAP
 
 MAX_TURNS = 24
 MAX_MESSAGE_CHARS = 2000
@@ -60,6 +61,8 @@ def handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
 
     if method == "GET" and path == "/api/agents":
         return _json(200, [{"id": a.id, "title": a.title, "persona": a.persona, "tools": [{"name": t.name, "system": t.system, "kind": t.kind, "description": t.description} for t in a.tools]} for a in AGENTS.values()])
+    if method == "GET" and path == "/api/budget":
+        return _json(200, status())
     if method != "POST" or path != "/api/chat":
         return _json(404, {"error": "Not found"})
 
@@ -75,9 +78,20 @@ def handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         return _json(400, {"error": v})
     agent_id, messages = v
 
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    viewer_ip = headers.get("x-forwarded-for", "").split(",")[0].strip() or event.get("requestContext", {}).get("http", {}).get("sourceIp")
+    r = reserve(viewer_ip)
+    if not r["ok"]:
+        return _json(r["status"], {"error": r["message"]})
+
     lines: list[str] = []
     try:
         for ev in run_turn(AGENTS[agent_id], messages):
+            if ev["type"] == "done":
+                try:
+                    ev["budget"] = {"spent": settle(r["day"], turn_cost(ev["usage"])), "cap": CAP}
+                except Exception as err:  # noqa: BLE001
+                    print("settle error", err)
             lines.append(json.dumps(ev))
     except Exception as err:  # noqa: BLE001
         msg = str(err)
