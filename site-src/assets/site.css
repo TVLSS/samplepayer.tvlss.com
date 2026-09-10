@@ -287,6 +287,7 @@ footer p { max-width: 80ch; }
   .chat.used .samples { display: none; }
   .composer { padding: .7rem 1rem .8rem; gap: .5rem; }
   .composer .btn { min-height: 44px; }
+  .composer textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ledger { max-height: 380px; }
   .about { padding-block: .5rem 2.5rem; }
 }
