@@ -15,7 +15,7 @@ as it happens. All data is synthetic.
 | `site-src/` | Page copy (`pages.mjs`), stylesheet and browser script |
 | `scripts/build-site.mjs` | Generates `site/` from `site-src/` and the agent definitions (tool tables never drift from code) |
 | `cdk/` | AWS CDK (TypeScript) port of `template.yaml`, resource for resource, with synth-level tests. Not the deploy path; see *CDK port* below |
-| `deploy.sh` | Typecheck, build site, `sam build`, `sam deploy`, S3 sync, CloudFront invalidation |
+| `deploy.sh` | Typecheck, build site, `sam build`, `sam deploy`, S3 sync, CloudFront invalidation. Follow with `api/scripts/smoke-live.mjs` |
 
 ## Deploy
 
@@ -70,6 +70,15 @@ Python twin (once: `python3 -m venv .venv && .venv/bin/pip install boto3`):
 
 ```
 AWS_REGION=us-east-2 .venv/bin/python api-python/scripts/smoke.py claims
+```
+
+Both of those run the runtime in-process. To exercise the deployed path instead (CloudFront's
+signed requests to the Lambda URL, the edge function, the budget table, streaming), run the same
+questions against the live site. It is the post-deploy check; seven turns cost about 17 cents,
+and it exits non-zero if any turn errors, is rate-limited, or does not end normally.
+
+```
+cd api && node scripts/smoke-live.mjs            # or: node scripts/smoke-live.mjs claims
 ```
 
 ## Wire protocol
