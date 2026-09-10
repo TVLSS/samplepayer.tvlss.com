@@ -79,7 +79,7 @@ async function turn(agent, q) {
     if (e.type === "text") { if (!t.firstText) t.firstText = Date.now() - t0; t.text += e.delta; }
     if (e.type === "tool_call") { t.calls.push({ name: e.name, input: e.input }); process.stdout.write(`  -> ${e.name} ${JSON.stringify(e.input)}\n`); }
     if (e.type === "tool_result") process.stdout.write(`  <- ${e.name}: ${e.summary} (${e.ms}ms)\n`);
-    if (e.type === "done") { t.stopReason = e.stopReason; t.usage = e.usage; t.budget = e.budget ?? null; }
+    if (e.type === "done") { t.stopReason = e.stopReason; t.usage = e.usage; t.rounds = e.rounds; t.budget = e.budget ?? null; }
     if (e.type === "error") t.error = e.message;
   };
   while (true) {
@@ -94,7 +94,7 @@ async function turn(agent, q) {
 
 function report(t) {
   if (t.error) process.stdout.write(`  !! ${t.error}\n`);
-  else process.stdout.write(`  [${t.stopReason}] ${t.ms}ms total, first text at ${t.firstText}ms, ${t.calls.length} tool calls, tokens in=${t.usage?.inputTokens} out=${t.usage?.outputTokens} cached=${t.usage?.cacheReadInputTokens ?? 0}${t.budget ? `, today $${t.budget.spent.toFixed(4)} of $${t.budget.cap}` : ""}\n`);
+  else process.stdout.write(`  [${t.stopReason}] ${t.ms}ms total, first text at ${t.firstText}ms, ${t.calls.length} tool calls in ${t.rounds} model calls, tokens in=${t.usage?.inputTokens} out=${t.usage?.outputTokens} cached=${t.usage?.cacheReadInputTokens ?? 0}${t.budget ? `, today $${t.budget.spent.toFixed(4)} of $${t.budget.cap}` : ""}\n`);
   process.stdout.write("\n" + t.text.trim().split("\n").map((l) => "  | " + l).join("\n") + "\n");
 }
 

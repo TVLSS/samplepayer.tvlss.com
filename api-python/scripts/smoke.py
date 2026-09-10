@@ -36,7 +36,7 @@ for aid in ids:
         elif ev["type"] == "tool_result":
             print(f"  <- {ev['name']}: {ev['summary']} ({ev['ms']}ms)")
         elif ev["type"] == "done":
-            print(f"  [{ev['stopReason']}] {int((time.time() - t0) * 1000)}ms total, first text at {int(first * 1000)}ms, {calls} tool calls, tokens in={ev['usage']['inputTokens']} out={ev['usage']['outputTokens']} model={ev['model']}")
+            print(f"  [{ev['stopReason']}] {int((time.time() - t0) * 1000)}ms total, first text at {int(first * 1000)}ms, {calls} tool calls in {ev['rounds']} model calls, tokens in={ev['usage']['inputTokens']} cached={ev['usage']['cacheReadInputTokens']} out={ev['usage']['outputTokens']} model={ev['model']}")
         elif ev["type"] == "error":
             print(f"  !! {ev['message']}")
     print("\n" + "\n".join("  | " + l for l in text.strip().split("\n")))

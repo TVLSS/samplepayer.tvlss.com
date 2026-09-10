@@ -23,7 +23,7 @@ for (const id of ids) {
     if (e.type === "text") { if (!firstText) firstText = Date.now() - t0; text += e.delta; }
     if (e.type === "tool_call") { calls++; process.stdout.write(`  -> ${e.name} ${JSON.stringify(e.input)}\n`); }
     if (e.type === "tool_result") process.stdout.write(`  <- ${e.name}: ${e.summary} (${e.ms}ms)\n`);
-    if (e.type === "done") process.stdout.write(`  [${e.stopReason}] ${Date.now() - t0}ms total, first text at ${firstText}ms, ${calls} tool calls, tokens in=${e.usage.inputTokens} out=${e.usage.outputTokens} model=${e.model}\n`);
+    if (e.type === "done") process.stdout.write(`  [${e.stopReason}] ${Date.now() - t0}ms total, first text at ${firstText}ms, ${calls} tool calls in ${e.rounds} model calls, tokens in=${e.usage.inputTokens} cached=${e.usage.cacheReadInputTokens} out=${e.usage.outputTokens} model=${e.model}\n`);
     if (e.type === "error") process.stdout.write(`  !! ${e.message}\n`);
   });
   process.stdout.write("\n" + text.trim().split("\n").map((l) => "  | " + l).join("\n") + "\n");

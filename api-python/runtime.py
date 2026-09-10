@@ -64,7 +64,7 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
     for round_ in range(MAX_TOOL_ROUNDS + 1):
         if round_ > 0 and reserve_call is not None and not reserve_call():
             yield {"type": "text", "delta": BUDGET_STOP_TEXT}
-            yield {"type": "done", "stopReason": "budget", "usage": dict(usage), "model": MODEL_ID}
+            yield {"type": "done", "stopReason": "budget", "usage": dict(usage), "model": MODEL_ID, "rounds": round_}
             return
         res = _client.converse_stream(
             modelId=MODEL_ID,
@@ -117,7 +117,7 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
 
         tool_uses = [b["toolUse"] for b in assistant_content if "toolUse" in b]
         if stop_reason != "tool_use" or not tool_uses:
-            yield {"type": "done", "stopReason": stop_reason, "usage": dict(usage), "model": MODEL_ID}
+            yield {"type": "done", "stopReason": stop_reason, "usage": dict(usage), "model": MODEL_ID, "rounds": round_ + 1}
             return
 
         results: list[dict[str, Any]] = []
@@ -140,4 +140,4 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
         messages.append({"role": "user", "content": results})
 
     yield {"type": "text", "delta": "\n\nI stopped after several system lookups without reaching an answer. Try narrowing the question."}
-    yield {"type": "done", "stopReason": "max_tool_rounds", "usage": dict(usage), "model": MODEL_ID}
+    yield {"type": "done", "stopReason": "max_tool_rounds", "usage": dict(usage), "model": MODEL_ID, "rounds": MAX_TOOL_ROUNDS + 1}

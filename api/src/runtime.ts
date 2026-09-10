@@ -30,7 +30,7 @@ export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "tool_call"; id: string; name: string; system: string; kind: "read" | "write"; input: unknown }
   | { type: "tool_result"; id: string; name: string; ok: boolean; summary: string; output: unknown; ms: number }
-  | { type: "done"; stopReason: string; usage: Usage; model: string; budget?: { spent: number; cap: number } }
+  | { type: "done"; stopReason: string; usage: Usage; model: string; rounds: number; budget?: { spent: number; cap: number } }
   | { type: "error"; message: string };
 
 export interface ClientMessage { role: "user" | "assistant"; content: string }
@@ -84,7 +84,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     if (round > 0 && opts.reserveCall && !(await opts.reserveCall())) {
       emit({ type: "text", delta: BUDGET_STOP_TEXT });
-      await emit({ type: "done", stopReason: "budget", usage, model: MODEL_ID });
+      await emit({ type: "done", stopReason: "budget", usage, model: MODEL_ID, rounds: round });
       return;
     }
     const res = await client.send(
@@ -141,7 +141,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
 
     const toolUses = assistantContent.filter((b) => b.toolUse).map((b) => b.toolUse!);
     if (stopReason !== "tool_use" || toolUses.length === 0) {
-      await emit({ type: "done", stopReason, usage, model: MODEL_ID });
+      await emit({ type: "done", stopReason, usage, model: MODEL_ID, rounds: round + 1 });
       return;
     }
 
@@ -168,5 +168,5 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
     messages.push({ role: "user", content: results });
   }
   emit({ type: "text", delta: "\n\nI stopped after several system lookups without reaching an answer. Try narrowing the question." });
-  await emit({ type: "done", stopReason: "max_tool_rounds", usage, model: MODEL_ID });
+  await emit({ type: "done", stopReason: "max_tool_rounds", usage, model: MODEL_ID, rounds: MAX_TOOL_ROUNDS + 1 });
 }

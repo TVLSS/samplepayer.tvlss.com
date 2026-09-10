@@ -87,7 +87,8 @@ cd api && node scripts/smoke-live.mjs --guardrails   # only the guardrail cases
 ## Wire protocol
 
 `POST /api/chat` with `{ "agent": "claims", "messages": [{ "role": "user", "content": "..." }] }`
-returns an NDJSON stream of events: `text` (delta), `tool_call`, `tool_result`, `done`, `error`.
+returns an NDJSON stream of events: `text` (delta), `tool_call`, `tool_result`, `done` (with
+`usage`, `rounds` and `budget`), `error`.
 The browser keeps the transcript; the server is stateless. Because CloudFront signs requests
 to the Lambda URL, POST bodies must carry an `x-amz-content-sha256` header (the page computes it).
 
@@ -106,8 +107,21 @@ to the Lambda URL, POST bodies must carry an `x-amz-content-sha256` header (the 
   URL response, so the Python function returns the whole NDJSON body at once. The page handles both.
 - **No sign-in.** It is a demo on synthetic data. Spend is bounded by reserved concurrency (5),
   a 1,200-token output cap, and trimming history to the last 24 turns.
-- **Sonnet 5 by default.** Measured 8 to 12 s per answer with three tool rounds; first text at
-  5 to 8 s. Opus 5 is a parameter flip if quality matters more than latency for a given demo.
+- **Sonnet 5 by default.** Measured 7 to 11 s per answer, first text at 4 to 9 s, two model calls
+  per turn on six of the seven smoke questions (one for the lookups, one for the answer). Opus 5 is
+  a parameter flip if quality matters more than latency for a given demo.
+- **Haiku 4.5 was compared on 2026-09-10 and not adopted as the default.** Same seven questions,
+  in-process: 1.5 to 5 s per answer, first text at 0.5 to 1.9 s, about half the cost per turn. But
+  it narrated its tool calls against the style rule, invented a "typical crown costs $800 to
+  $1,200" figure no tool returned, attributed the $380 in the cost walkthrough to the family
+  deductible instead of the individual one, and skipped reading the member record before proposing
+  the address change. Its prompt cache also stays cold: Bedrock's minimum cacheable prefix for
+  Haiku is 2,048 tokens and the tools plus prompt are about 1,900. It is the right flip for a demo
+  where speed is the point, after a prompt pass and a rerun of the guardrail set, not a default.
+- **The prompt already batches independent lookups.** A stronger "request every lookup in one
+  response" wording was tried the same day and changed nothing (the one three-call turn has a real
+  dependency: the claim id comes from the first lookup), so the original wording stays. The `done`
+  event now carries `rounds` (model calls in the turn) so this can be re-measured.
 
 ## Spend cap and alerts
 
