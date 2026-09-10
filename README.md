@@ -14,6 +14,7 @@ as it happens. All data is synthetic.
 | `api-python/` | Python twin of the runtime and agents (same wire protocol, same data) |
 | `site-src/` | Page copy (`pages.mjs`), stylesheet and browser script |
 | `scripts/build-site.mjs` | Generates `site/` from `site-src/` and the agent definitions (tool tables never drift from code) |
+| `scripts/phone-check.mjs` | Renders pages at 390px with mobile emulation via the local Chrome, prints layout measurements, saves screenshots, fails on horizontal overflow. Run after any stylesheet change |
 | `cdk/` | AWS CDK (TypeScript) port of `template.yaml`, resource for resource, with synth-level tests. Not the deploy path; see *CDK port* below |
 | `deploy.sh` | Typecheck, build site, `sam build`, `sam deploy`, S3 sync, CloudFront invalidation. Follow with `api/scripts/smoke-live.mjs` |
 
@@ -25,6 +26,10 @@ They are account-specific and stay out of the repo.
 ```
 ./deploy.sh
 ```
+
+Asset URLs carry a content hash (`/assets/site.css?v=…`), stamped by `build-site.mjs`, because
+assets are served with a one-day browser cache. Never reference an asset by bare path in a page
+template; a change would not reach returning visitors for a day. HTML is cached five minutes.
 
 Route the site to the Python backend instead (both are always deployed):
 
@@ -118,6 +123,12 @@ to the Lambda URL, POST bodies must carry an `x-amz-content-sha256` header (the 
   the address change. Its prompt cache also stays cold: Bedrock's minimum cacheable prefix for
   Haiku is 2,048 tokens and the tools plus prompt are about 1,900. It is the right flip for a demo
   where speed is the point, after a prompt pass and a rerun of the guardrail set, not a default.
+- **Phones get the chat, not the page.** Below 640px the ID card is hidden, the nav is one scrolling
+  row, the header stops being sticky, the chat panel fills the viewport, sample questions collapse
+  after the first message, and every tool call is also written into the transcript as a one-line
+  entry (the ledger is off screen there). Measured 2026-09-10 with `scripts/phone-check.mjs`: chat
+  top moved from 701px to 325px, transcript from 165px to 620px tall. Not yet checked on a real
+  iOS device: the on-screen keyboard against the full-height panel is the thing to look at.
 - **The prompt already batches independent lookups.** A stronger "request every lookup in one
   response" wording was tried the same day and changed nothing (the one three-call turn has a real
   dependency: the claim id comes from the first lookup), so the original wording stays. The `done`
@@ -187,6 +198,26 @@ enrollments) act on a per-request copy of the synthetic data (`api/src/state.ts`
 appear in another's conversation, and no Lambda instance accumulates it. The cost is that a change
 made in one turn is not visible in the next; the model restates it in the answer and the browser
 sends that answer back as history. Request bodies are not logged.
+
+## 2026-09-10 in one place
+
+An external audit of commit `18b2ee6` found three high-priority issues; all were fixed and verified
+against the live site the same day, then the day continued into guardrails, performance and phones.
+Commit messages carry the detail; this is the map.
+
+| Commit | What |
+| --- | --- |
+| `a9a85f5` | Per-request tool state (no cross-visitor leakage), viewer IP stamped at the CloudFront edge, spend reserved per model call |
+| `8a114bc` | `smoke-live.mjs`: the smoke questions against the deployed site, the post-deploy check |
+| `c964cd5`, `38be3a6` | Bedrock Guardrail on every call (async output mode after sync doubled time-to-first-text) plus a five-case guardrail test set |
+| `0ab30e5` | Prompt caching on tools + system prompt, cache-aware cost, shorter answers |
+| `e300f76`, `b2ed494` | Phone layout |
+| `f32c6d3` | `rounds` in the done event; Haiku 4.5 compared and not adopted; parallel-nudge tried and reverted |
+| `a645743`…`d1c2722` | ID card tag overlap; asset URLs hashed (deploys were not reaching cached browsers) |
+
+Known open items: real-device check of the phone chat with the keyboard up; pin a numbered
+guardrail version before this is anything but a demo; server-side write confirmation before any
+real integration (below).
 
 ## Not built (say so in the room)
 
