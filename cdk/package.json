@@ -1,0 +1,22 @@
+{
+  "name": "wellmark-demo-cdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AWS CDK (TypeScript) port of template.yaml for wellmark.tvlss.com",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "synth": "cdk synth --quiet",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "aws-cdk": "^2.1000.0",
+    "aws-cdk-lib": "^2.190.0",
+    "constructs": "^10.4.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}

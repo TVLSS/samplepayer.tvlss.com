@@ -1,0 +1,22 @@
+{
+  "app": "npx tsx bin/app.ts",
+  "context": {
+    "stackName": "wellmark-demo-cdk",
+    "domainName": "wellmark.tvlss.com",
+    "modelId": "us.anthropic.claude-sonnet-5",
+    "maxOutputTokens": "1200",
+    "reservedConcurrency": 5,
+    "dailyBudgetUsd": 5,
+    "priceInPerMtok": 3,
+    "priceOutPerMtok": 15,
+    "ipTurnsPerHour": 40,
+    "backend": "typescript",
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false
+  }
+}

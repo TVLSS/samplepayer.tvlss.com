@@ -14,6 +14,7 @@ as it happens. All data is synthetic.
 | `api-python/` | Python twin of the runtime and agents (same wire protocol, same data) |
 | `site-src/` | Page copy (`pages.mjs`), stylesheet and browser script |
 | `scripts/build-site.mjs` | Generates `site/` from `site-src/` and the agent definitions (tool tables never drift from code) |
+| `cdk/` | AWS CDK (TypeScript) port of `template.yaml`, resource for resource, with synth-level tests. Not the deploy path; see *CDK port* below |
 | `deploy.sh` | Typecheck, build site, `sam build`, `sam deploy`, S3 sync, CloudFront invalidation |
 
 ## Deploy
@@ -37,6 +38,27 @@ enabled in the account):
 ```
 ./deploy.sh --parameter-overrides ModelId=us.anthropic.claude-opus-5
 ```
+
+## CDK port
+
+`cdk/` is the same stack written in AWS CDK (TypeScript), kept in step with `template.yaml`.
+**SAM remains the deploy path.** The port exists to show the stack in CDK form and to keep the
+two IaC shapes honest against each other; it reads the same `.env` as `deploy.sh`.
+
+```
+cd cdk && npm install
+npm test          # synth-level assertions (aws-cdk-lib/assertions)
+npm run synth     # writes cdk.out/wellmark-demo-cdk.template.json
+npm run diff      # against a deployed wellmark-demo-cdk stack, if one exists
+```
+
+Do not `cdk deploy` while the SAM stack is up: both would claim the `wellmark.tvlss.com` alias
+and the Route 53 records. To switch, `sam delete` first, then `cdk deploy` and run the S3 sync and
+invalidation steps from `deploy.sh` against the new stack's outputs (the output keys are the same).
+
+Where the CDK shape differs, on purpose: parameters became construct props from `cdk.json` context
+and `.env`; the site and log buckets are auto-named; only the active backend gets CloudFront
+permissions; alerts are a compile-time `if` on the email rather than a CloudFormation condition.
 
 ## Try an agent from the terminal
 
