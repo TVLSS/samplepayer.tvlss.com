@@ -24,6 +24,27 @@ const SYSTEM_NAMES = {
   CARE_MGMT: "Care management", PROVIDER_DIRECTORY: "Provider directory", NETWORK_CONTRACTS: "Network contracts",
 };
 
+const ICONS = {
+  benefits: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+  claims: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
+  membership: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.2"/><path d="M6 17c.6-1.6 1.7-2.4 3-2.4s2.4.8 3 2.4M14 10h4M14 14h4"/></svg>',
+  group: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 11h.01M15 11h.01M9 14h.01M15 14h.01"/></svg>',
+  accumulations: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/></svg>',
+  "health-services": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M6 12h3l1.5-3 2 6 1.5-3h4"/></svg>',
+  "provider-network": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6-5.2 6-11a6 6 0 0 0-12 0c0 5.8 6 11 6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
+};
+
+function idCard(p) {
+  if (p.id === "group") return `<div class="idcard" aria-label="Group account card, synthetic"><span class="tag">SYNTHETIC</span>
+    <div class="plan">Group account <small>Prairie Health Plans</small></div>
+    <div class="name">Cedar Rapids Machine Works</div>
+    <dl><dt>Group</dt><dd>G-44812</dd><dt>Administrator</dt><dd>R. Castillo</dd><dt>Renewal</dt><dd>01/01/2027</dd><dt>Enrolled</dt><dd>183 subscribers</dd></dl></div>`;
+  return `<div class="idcard" aria-label="Member ID card, synthetic"><span class="tag">SYNTHETIC</span>
+    <div class="plan"><span>Prairie PPO 1500</span><span class="chip" aria-hidden="true"></span></div>
+    <div class="name">Dana Whitfield</div>
+    <dl><dt>Member ID</dt><dd>W20419873</dd><dt>Group</dt><dd>G-44812</dd><dt>PCP copay</dt><dd>$25</dd><dt>Rx BIN</dt><dd>610014</dd></dl></div>`;
+}
+
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 function layout({ title, description, body, current, noindex = true }) {
@@ -37,13 +58,13 @@ function layout({ title, description, body, current, noindex = true }) {
 ${noindex ? '<meta name="robots" content="noindex">' : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a44'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23c7741b'/%3E%3C/svg%3E">
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="/">Wellmark agent demos <small>by TVLSS</small></a>
+  <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>Wellmark agent demos <small>by TVLSS</small></a>
   <nav class="nav" aria-label="Demos">${pages.map((p) => `<a href="/${p.id}"${p.id === current ? ' aria-current="page"' : ""}>${esc(p.nav)}</a>`).join("")}</nav>
 </div></header>
 ${body}
@@ -62,18 +83,18 @@ function demoPage(p) {
   const body = `
 <main class="wrap">
   <div class="demo-head">
-    <div><h1>${esc(p.h1)}</h1><p>${esc(p.tagline)}</p></div>
-    <div class="signed"><b>${esc(p.persona)}</b>signed in · synthetic data</div>
+    <div><div class="icon" aria-hidden="true">${ICONS[p.id]}</div><h1>${esc(p.h1)}</h1><p>${esc(p.tagline)}</p></div>
+    ${idCard(p)}
   </div>
   <div class="demo">
     <section class="panel chat" data-agent="${p.id}" data-greeting="${esc(p.greeting)}" aria-label="Chat with the ${esc(agent.title.toLowerCase())}">
-      <div class="chat-tools"><span>${esc(agent.title)}</span><button type="button">Start over</button></div>
+      <div class="chat-tools"><b><i aria-hidden="true"></i>${esc(agent.title)} · signed in as ${esc(p.persona.split(" ·")[0])}</b><button type="button">Start over</button></div>
       <div class="transcript" aria-live="polite"><div class="msg agent">${esc(p.greeting)}</div></div>
       <div class="samples" aria-label="Sample questions">${p.samples.map((s) => `<button type="button">${esc(s)}</button>`).join("")}</div>
       <form class="composer"><label class="visually-hidden" for="q" hidden>Your question</label><textarea id="q" rows="1" placeholder="Ask about ${esc(p.placeholder)}" autocomplete="off"></textarea><button class="btn" type="submit">Send</button></form>
     </section>
     <aside class="panel ledger" aria-label="System calls">
-      <div class="ledger-head"><h3>What the agent did</h3><span></span></div>
+      <div class="ledger-head"><h3>Live system calls</h3><span></span></div>
       <div class="entries"><div class="empty">System calls the agent makes will appear here as they happen.</div></div>
       <div class="systems-list"><h4>Systems this agent can reach</h4>${sys.map((s) => `<span class="chip" data-system="${s}">${esc(SYSTEM_NAMES[s] ?? s)}</span>`).join("")}</div>
     </aside>
@@ -104,49 +125,55 @@ function homePage() {
   const body = `
 <main class="wrap">
   <section class="hero">
-    <h1>${home.h1}</h1>
-    <p class="lede">${home.lede}</p>
-    <p class="meta">${home.meta}</p>
+    <div>
+      <div class="eyebrow"><i aria-hidden="true"></i>Live demos · synthetic data · nothing stored</div>
+      <h1>${home.h1}</h1>
+      <p class="lede">${home.lede}</p>
+      <p class="meta">${home.meta}</p>
+      <div class="cta"><a class="btn" href="/claims">Try the claims assistant</a><a class="btn ghost" href="#demos">See all seven</a></div>
+    </div>
+    <div class="specimen" aria-label="Example conversation with the accumulations assistant, played automatically">
+      <div class="glass spec-chat"><div class="bar"><b>Accumulations assistant</b><span>signed in as Dana Whitfield</span></div><div class="spec-flow"></div></div>
+      <div class="glass spec-ledger"><div class="bar"><b>Live system calls</b></div>
+        <div class="row"><span class="dot"></span><div><div class="name">get_family_accumulators</div><div class="sys">accumulator service</div><div class="res"></div></div></div>
+        <div class="row"><span class="dot"></span><div><div class="name">estimate_member_cost</div><div class="sys">accumulator service</div><div class="res"></div></div></div>
+      </div>
+    </div>
   </section>
-  <section class="switchboard" aria-label="Demos">
-    ${pages.map((p) => `<div class="row">
-      <div><h3><a href="/${p.id}">${esc(p.nav)}</a></h3><p class="job">${esc(p.job)}</p><p class="systems">${[...new Set(agents[p.id].tools.map((t) => SYSTEM_NAMES[t.system] ?? t.system))].join(" · ")}</p></div>
+  <section class="section" id="demos">
+    <div class="section-head"><div><h2>Seven assistants, one pattern.</h2><p>Each reads a different set of back-office systems. Open one and ask it anything a member or an administrator would.</p></div></div>
+    <div class="grid">
+    ${pages.map((p, i) => `<a class="agent-card${i === pages.length - 1 ? " wide" : ""}" href="/${p.id}">
+      <span class="n">0${i + 1}</span>
+      <div class="icon" aria-hidden="true">${ICONS[p.id]}</div>
+      <h3>${esc(p.nav)}</h3>
+      <p class="job">${esc(p.job)}</p>
       <p class="ask">${esc(p.samples[0])}</p>
-      <a class="btn" href="/${p.id}">Try it</a>
-    </div>`).join("")}
+      <div class="foot"><span>${[...new Set(agents[p.id].tools.map((t) => SYSTEM_NAMES[t.system] ?? t.system))].join(" · ")}</span><b>Try it</b></div>
+    </a>`).join("")}
+    </div>
   </section>
 </main>
-<section class="band"><div class="wrap cols">
+<section class="band section"><div class="wrap cols">
   <div>
     <h2>How it's built</h2>
     <p>${home.how}</p>
-    ${archSvg()}
+    <div class="flow">
+      <div class="node">Browser<small>static page</small></div>
+      <div class="node">CloudFront<small>one domain</small></div>
+      <div class="node hot">Lambda agent<small>TypeScript · streaming</small></div>
+      <div class="node hot">Claude<small>Amazon Bedrock</small></div>
+      <div class="node">Adapters<small>one per system</small></div>
+      <div class="sys-row"><span>Medical core</span><span>Claims</span><span>Membership</span><span>Group admin</span><span>Billing</span><span>Accumulators</span><span>Utilization mgmt</span><span>Care mgmt</span><span>Provider directory</span><span>Contracts</span><span>Dental</span><span>Vision</span><span>PBM</span></div>
+    </div>
   </div>
   <div>
     <h2>The numbers that matter</h2>
     <ul class="facts">${home.facts.map(([k, v]) => `<li><b>${esc(k)}</b><span>${v}</span></li>`).join("")}</ul>
   </div>
-</div></section>`;
+</div></section>
+<script src="/assets/hero.js" defer></script>`;
   return layout({ title: "Wellmark agent demos", description: home.lede, body, current: null });
-}
-
-function archSvg() {
-  return `<svg class="arch" viewBox="0 0 560 250" role="img" aria-label="Browser to CloudFront, then to S3 for pages or to a Lambda function that calls Claude on Bedrock and the system adapters">
-  <rect x="8" y="20" width="96" height="40" rx="4"/><text x="56" y="45" text-anchor="middle">Browser</text>
-  <line x1="104" y1="40" x2="150" y2="40"/>
-  <rect x="150" y="20" width="110" height="40" rx="4"/><text x="205" y="45" text-anchor="middle">CloudFront</text>
-  <path d="M260 40 H300 V110 H330"/><path d="M260 40 H330"/>
-  <rect x="330" y="20" width="110" height="40" rx="4"/><text x="385" y="45" text-anchor="middle">S3 pages</text>
-  <rect x="330" y="90" width="110" height="40" rx="4" class="hot"/><text x="385" y="115" text-anchor="middle">Lambda agent</text>
-  <text x="385" y="146" text-anchor="middle" class="lbl">TypeScript · streaming</text>
-  <path d="M385 130 V160"/>
-  <rect x="300" y="160" width="170" height="40" rx="4"/><text x="385" y="185" text-anchor="middle">Claude on Bedrock</text>
-  <path d="M330 110 H290 V215 H8"/>
-  <rect x="8" y="200" width="80" height="34" rx="4"/><text x="48" y="222" text-anchor="middle">Claims</text>
-  <rect x="98" y="200" width="90" height="34" rx="4"/><text x="143" y="222" text-anchor="middle">Membership</text>
-  <rect x="198" y="200" width="82" height="34" rx="4"/><text x="239" y="222" text-anchor="middle">…13 more</text>
-  <text x="8" y="188" class="lbl">System adapters (synthetic today)</text>
-</svg>`;
 }
 
 for (const p of pages) writeFileSync(path.join(out, `${p.id}.html`), demoPage(p));
