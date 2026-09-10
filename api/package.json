@@ -1,0 +1,21 @@
+{
+  "name": "wellmark-demo-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Streaming chat Lambda for wellmark.tvlss.com demo agents (Bedrock Converse, TypeScript)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/handler.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --external:@aws-sdk/*",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.0.0",
+    "esbuild": "^0.25.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}
