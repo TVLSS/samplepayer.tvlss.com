@@ -47,6 +47,22 @@
     return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
   }
 
+  // On narrow screens the ledger sits below the fold, so each system call is also
+  // written into the transcript as a one-line entry (hidden by CSS on wide screens).
+  function addInlineCall(ev, before) {
+    var c = el("div", "call pending" + (ev.kind === "write" ? " write" : ""));
+    c.dataset.id = ev.id;
+    c.appendChild(el("span", "name", ev.name));
+    c.appendChild(el("span", "sys", ev.system.replace(/_/g, " ").toLowerCase()));
+    c.appendChild(el("span", "res", ""));
+    transcript.insertBefore(c, before);
+  }
+  function resolveInlineCall(ev) {
+    var c = transcript.querySelector('.call[data-id="' + ev.id + '"]'); if (!c) return;
+    c.classList.remove("pending");
+    var res = c.querySelector(".res"); res.textContent = ev.summary; if (!ev.ok) res.classList.add("err");
+  }
+
   function addLedger(ev) {
     var empty = entries.querySelector(".empty"); if (empty) empty.remove();
     if (ev.type === "turn") { entries.appendChild(el("div", "entry turn", "Turn " + ev.n + " · " + ev.text)); entries.scrollTop = entries.scrollHeight; return; }
@@ -71,6 +87,7 @@
   async function ask(text) {
     if (busy || !text.trim()) return;
     busy = true; send.disabled = true; input.value = ""; autosize();
+    root.classList.add("used");
     turn++;
     var u = el("div", "msg user", text); transcript.appendChild(u);
     history.push({ role: "user", content: text });
@@ -90,8 +107,8 @@
           if (!lines[i].trim()) continue;
           var ev = JSON.parse(lines[i]);
           if (ev.type === "text") { if (working.parentNode) working.remove(); full += ev.delta; render(a, full); a.appendChild(cursor); scrollBottom(); }
-          else if (ev.type === "tool_call") { working.textContent = "Checking " + ev.system.replace(/_/g, " ").toLowerCase(); addLedger(ev); }
-          else if (ev.type === "tool_result") resolveLedger(ev);
+          else if (ev.type === "tool_call") { working.textContent = "Checking " + ev.system.replace(/_/g, " ").toLowerCase(); addLedger(ev); addInlineCall(ev, a); scrollBottom(); }
+          else if (ev.type === "tool_result") { resolveLedger(ev); resolveInlineCall(ev); }
           else if (ev.type === "error") { throw new Error(ev.message); }
           else if (ev.type === "done") { addLedger({ type: "turn", n: turn, text: ev.usage.inputTokens + " in / " + ev.usage.outputTokens + " out tokens" }); showBudget(ev.budget); }
         }
@@ -114,6 +131,7 @@
   var reset = document.querySelector(".chat-tools button");
   if (reset) reset.addEventListener("click", function () {
     history = []; turn = 0; callCount = 0; counter.textContent = "";
+    root.classList.remove("used");
     transcript.innerHTML = ""; transcript.appendChild(el("div", "msg agent", root.getAttribute("data-greeting")));
     entries.innerHTML = ""; entries.appendChild(el("div", "empty", "System calls the agent makes will appear here as they happen."));
     chips.forEach(function (c) { c.classList.remove("lit"); });
