@@ -32,7 +32,7 @@ Parameters:
   DailyBudgetUsd:
     Type: Number
     Default: 5
-    Description: Hard cap on estimated model spend per UTC day. Enforced in the Lambda before every turn.
+    Description: Cap on estimated MODEL spend per UTC day, reserved in the Lambda before every model call. Not the AWS bill; the DailyBudget resource watches that.
   PriceInPerMtok:
     Type: Number
     Default: 3
@@ -350,13 +350,18 @@ Resources:
       Name: !Sub "${AWS::StackName}-url-rewrite"
       AutoPublish: true
       FunctionConfig:
-        Comment: Map /claims to /claims.html and directory paths to index.html
+        Comment: Map /claims to /claims.html and directory paths to index.html; stamp the viewer IP on /api/*
         Runtime: cloudfront-js-2.0
       FunctionCode: |
         function handler(event) {
           var request = event.request;
           var uri = request.uri;
-          if (uri.indexOf('/api/') === 0) { return request; }
+          if (uri.indexOf('/api/') === 0) {
+            // The per-visitor rate limit keys on this. event.viewer.ip is what CloudFront
+            // saw on the TLS connection; setting it here overwrites anything the client sent.
+            request.headers['x-viewer-ip'] = { value: event.viewer.ip };
+            return request;
+          }
           if (uri.endsWith('/')) { request.uri = uri + 'index.html'; return request; }
           var last = uri.substring(uri.lastIndexOf('/') + 1);
           if (last.indexOf('.') === -1) { request.uri = uri + '.html'; }
@@ -419,6 +424,9 @@ Resources:
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad   # Managed-CachingDisabled
             OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac   # Managed-AllViewerExceptHostHeader
             ResponseHeadersPolicyId: !Ref SecurityHeaders
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt UrlRewriteFunction.FunctionMetadata.FunctionARN
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 404

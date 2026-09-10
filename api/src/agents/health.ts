@@ -1,5 +1,5 @@
 import type { AgentDef, Tool } from "../types.js";
-import { priorAuths, carePrograms, programEnrollments, nurseLine, plans, familyIds, members, accumulators, claims } from "../data.js";
+import { priorAuths, carePrograms, nurseLine, plans, familyIds, members, accumulators, claims } from "../data.js";
 import { baseRules, MEMBER_PERSONA } from "./common.js";
 
 const fam = new Set<string>(familyIds);
@@ -30,13 +30,13 @@ const tools: Tool[] = [
     name: "list_care_programs", system: "CARE_MGMT", kind: "read",
     description: "Lists care management programs the plan offers, with eligibility, cost share and whether the member is enrolled. Flags programs the member appears eligible for based on recent claims.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
-    run: () => { const hasMsk = claims.some((c) => c.memberId === "W20419873" && /Orthopedics|Physical Therapy/.test(c.provider)); return carePrograms.map((p) => ({ ...p, enrolled: programEnrollments.some((e) => e.programId === p.programId && e.memberId === "W20419873"), likelyEligible: p.programId === "MSK" ? hasMsk : ["TOB", "BH"].includes(p.programId) })); },
+    run: (_i, s) => { const hasMsk = claims.some((c) => c.memberId === "W20419873" && /Orthopedics|Physical Therapy/.test(c.provider)); return carePrograms.map((p) => ({ ...p, enrolled: s.programEnrollments.some((e) => e.programId === p.programId && e.memberId === "W20419873"), likelyEligible: p.programId === "MSK" ? hasMsk : ["TOB", "BH"].includes(p.programId) })); },
   },
   {
     name: "enroll_in_program", system: "CARE_MGMT", kind: "write",
     description: "WRITES: enrolls the member in a care management program. Confirm the program with the member before calling.",
     input_schema: { type: "object", properties: { program_id: { type: "string", enum: ["MSK", "DIAB", "MAT", "TOB", "BH"] } }, required: ["program_id"], additionalProperties: false },
-    run: (i) => { const p = carePrograms.find((p) => p.programId === i.program_id); if (!p) return { error: "Unknown program" }; programEnrollments.push({ memberId: "W20419873", programId: p.programId, enrolledDate: "2026-09-10", status: "Enrolled" }); return { program: p.name, status: "Enrolled", enrolledDate: "2026-09-10", nextStep: "A program coordinator calls within 2 business days to schedule the first session", summary: `Enrolled in ${p.name}`, note: "Demo only: nothing was actually enrolled." }; },
+    run: (i, s) => { const p = carePrograms.find((p) => p.programId === i.program_id); if (!p) return { error: "Unknown program" }; s.programEnrollments.push({ memberId: "W20419873", programId: p.programId, enrolledDate: "2026-09-10", status: "Enrolled" }); return { program: p.name, status: "Enrolled", enrolledDate: "2026-09-10", nextStep: "A program coordinator calls within 2 business days to schedule the first session", summary: `Enrolled in ${p.name}`, note: "Demo only: nothing was actually enrolled." }; },
   },
   {
     name: "get_nurse_line", system: "CARE_MGMT", kind: "read",

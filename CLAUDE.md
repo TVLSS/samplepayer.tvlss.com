@@ -4,7 +4,7 @@ Demo site pitching seven health-plan chatbot/agent builds. Read `README.md` firs
 
 - Stack `wellmark-demo`, region us-east-2. Certificate is the `*.tvlss.com` wildcard in us-east-1.
 - Deploy with `./deploy.sh`. The site is generated: edit `site-src/`, never `site/`.
-- Agents live in `api/src/agents/`. A tool is `{ name, description, system, kind, input_schema, run }`;
+- Agents live in `api/src/agents/`. A tool is `{ name, description, system, kind, input_schema, run }`. `run(input, state)` gets a per-request `TurnState` (`api/src/state.ts`); anything a write tool mutates goes there, never in a module-level variable, so visitors cannot see each other's input.
   `kind: "write"` tools must say "WRITES:" in the description so the prompt's confirm-first rule applies.
 - The Python twin in `api-python/` must stay behaviourally identical to `api/src`; change both or note why not.
 - Model is a stack parameter (`ModelId`). Bedrock model ids must be checked in us-east-2 before use.

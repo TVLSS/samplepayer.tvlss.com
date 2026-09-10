@@ -99,15 +99,25 @@ to the Lambda URL, POST bodies must carry an `x-amz-content-sha256` header (the 
 
 ## Spend cap and alerts
 
-Bedrock has no spend limit, so the cap is enforced in the Lambda. Every turn first reserves an
-estimated cost in a DynamoDB daily counter with a conditional update (atomic across concurrent
-turns), then settles to the real token cost when the turn ends. Once the UTC day's `DailyBudgetUsd`
-(default $5) is committed, `/api/chat` returns 429 with a plain message and the page shows it.
-`GET /api/budget` reports the day's spend; the chat bar shows it.
+Bedrock has no spend limit, so the cap is enforced in the Lambda, and it caps **estimated model
+spend**, not the AWS bill. Before every model call (a turn makes up to nine: one per tool round
+plus the answer) the Lambda reserves that call's worst case, `RESERVE_INPUT_TOKENS` (20k) in plus
+`MaxOutputTokens` out at the assumed prices, in a DynamoDB daily counter with a conditional update
+(atomic across concurrent turns). When the turn ends the reservations are replaced by the measured
+token cost; if a turn dies mid-way they stay, so an interrupted call over-counts rather than
+under-counts. Once the UTC day's `DailyBudgetUsd` (default $5) is committed, `/api/chat` returns
+429 with a plain message and the page shows it; a turn that hits the cap between tool rounds stops
+with a one-line apology. `GET /api/budget` reports the day's spend; the chat bar shows it.
+
+Lambda, CloudFront, DynamoDB and log storage sit outside that counter. They are fractions of a cent
+per turn and bounded by reserved concurrency; the AWS Budget below is what watches the actual bill.
 
 - Prices are parameters (`PriceInPerMtok` 3, `PriceOutPerMtok` 15), set above Sonnet 5 list price
-  so the estimate stops early rather than late. Fix them if you switch models.
-- Per-visitor limit: `IpTurnsPerHour` (40), keyed on a hash of the CloudFront viewer address.
+  so the estimate stops early rather than late. Fix them if you switch models. The Lambda logs a
+  warning if a turn ever costs more than it reserved.
+- Per-visitor limit: `IpTurnsPerHour` (40), keyed on a hash of the viewer address. The CloudFront
+  Function on `/api/*` writes that address into `x-viewer-ip` from `event.viewer.ip`, overwriting
+  anything the client sent; the Lambda never trusts a client-supplied `X-Forwarded-For` entry.
 - With `NOTIFICATION_EMAIL` in `.env`: an SNS email alarm at 150 invocations/hour, an error alarm,
   and an AWS Budget (daily, filtered to this stack's tag) at 80% and 100%. Cost data lags up to a
   day, so the budget is the backstop, not the limit. Confirm the SNS subscription email once.
@@ -121,7 +131,21 @@ IAM-only function URLs behind CloudFront OAC, private S3 with OAC, least-privile
 of conversations, Bedrock invocation logging off. Review notes from 2026-09-10 are in the commit
 history.
 
+**Nothing a visitor types outlives the request.** Simulated writes (appeals, contact changes,
+enrollments) act on a per-request copy of the synthetic data (`api/src/state.ts`,
+`api-python/state.py`) that is discarded when the response ends, so one visitor's input can never
+appear in another's conversation, and no Lambda instance accumulates it. The cost is that a change
+made in one turn is not visible in the next; the model restates it in the answer and the browser
+sends that answer back as history. Request bodies are not logged.
+
 ## Not built (say so in the room)
 
 Authentication, real system adapters, audit logging, PHI handling / HIPAA account controls,
 conversation storage. The tool interface is the seam where each of those attaches.
+
+**Confirmation of writes is prompt-enforced only.** The system prompt tells the model to describe a
+write and get a yes first, and the runtime executes whatever tool the model calls. That is fine
+while every write is simulated. Before any `kind: "write"` tool touches a real system, the runtime
+needs a server-side gate: the proposed action (tool name plus exact input) is shown to the user,
+their approval is recorded against that exact proposal, and the tool runs only with a matching
+approval. Authorization of who may call which write belongs there too, not in the prompt.

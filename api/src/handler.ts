@@ -6,7 +6,7 @@
 
 import { agents } from "./agents/index.js";
 import { runTurn, type ChatEvent, type ClientMessage } from "./runtime.js";
-import { reserve, settle, status, turnCost } from "./budget.js";
+import { CALL_RESERVE, reserve, reserveCall, settle, status, turnCost } from "./budget.js";
 
 declare const awslambda: {
   streamifyResponse: (fn: (event: LambdaUrlEvent, stream: ResponseStream, ctx: unknown) => Promise<void>) => unknown;
@@ -23,6 +23,19 @@ function json(stream: ResponseStream, status: number, body: unknown) {
   const s = awslambda.HttpResponseStream.from(stream, { statusCode: status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
   s.write(JSON.stringify(body));
   s.end();
+}
+
+// The per-visitor limit is keyed on the viewer's address as CloudFront saw it.
+// The CloudFront Function on /api/* sets x-viewer-ip from event.viewer.ip and
+// overwrites any value the client sent. Anything in x-forwarded-for before the
+// last entry is client-supplied (CloudFront appends the real viewer address at
+// the end), so the fallback takes the last entry, never the first.
+function viewerIp(event: LambdaUrlEvent): string | undefined {
+  const h = event.headers ?? {};
+  const trusted = (h["x-viewer-ip"] ?? "").trim();
+  if (trusted) return trusted;
+  const xff = (h["x-forwarded-for"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return xff[xff.length - 1] || event.requestContext?.http?.sourceIp;
 }
 
 function parseBody(event: LambdaUrlEvent): unknown {
@@ -69,20 +82,20 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream)
   const v = validate(parsed);
   if (typeof v === "string") return json(responseStream, 400, { error: v });
 
-  // CloudFront puts the viewer's address first in x-forwarded-for.
-  const viewerIp = (event.headers?.["x-forwarded-for"] ?? "").split(",")[0].trim() || event.requestContext?.http?.sourceIp;
-  const r = await reserve(viewerIp);
+  const r = await reserve(viewerIp(event));
   if (!r.ok) return json(responseStream, r.status, { error: r.message });
+  let reserved = CALL_RESERVE;
+  const reserveNext = async () => { const ok = await reserveCall(r.day); if (ok) reserved += CALL_RESERVE; return ok; };
 
   const stream = awslambda.HttpResponseStream.from(responseStream, { statusCode: 200, headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" } });
   const emit = (e: ChatEvent) => stream.write(JSON.stringify(e) + "\n");
   try {
     await runTurn(agents[v.agentId], v.messages, async (e) => {
       if (e.type === "done") {
-        const spent = await settle(r.day, turnCost(e.usage)).catch(() => -1);
+        const spent = await settle(r.day, turnCost(e.usage), reserved).catch(() => -1);
         emit({ ...e, budget: spent >= 0 ? { spent, cap: Number(process.env.DAILY_BUDGET_USD ?? 5) } : undefined });
       } else emit(e);
-    });
+    }, { reserveCall: reserveNext });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("chat error", message);

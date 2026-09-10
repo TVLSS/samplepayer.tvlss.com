@@ -18,7 +18,7 @@ def _in_net(p):
     return _NETWORK in p["networks"] or any(re.search(r"Dental|Vision", n) for n in p["networks"])
 
 
-def _search(i):
+def _search(i, _s):
     spec = str(i.get("specialty") or "").lower()
 
     def spec_ok(p):
@@ -36,7 +36,7 @@ def _search(i):
     return [{"npi": p["npi"], "name": p["name"], "specialty": p["specialty"], "practice": p["practice"], "address": p["address"], "phone": p["phone"], "inNetwork": _in_net(p), "tier": p["tier"], "acceptingNewPatients": p["acceptingNewPatients"], "telehealth": p["telehealth"], "distanceMiles": p["distanceMiles"], "nextAvailable": p["nextAvailable"], "qualityRating": p["qualityRating"]} for p in rows]
 
 
-def _status(i):
+def _status(i, _s):
     p = next((p for p in PROVIDERS if (i.get("npi") and p["npi"] == str(i["npi"])) or (i.get("name") and _name_matches(p["name"], str(i["name"])))), None)
     if not p:
         return {"error": f"No provider matching {i.get('npi') or i.get('name')}"}
@@ -45,11 +45,11 @@ def _status(i):
     return {"npi": p["npi"], "name": p["name"], "specialty": p["specialty"], "inNetwork": in_net, "networks": p["networks"], "tier": p["tier"], "contract": c or {"status": "Active" if in_net else "Not contracted"}, "summary": f"In network ({', '.join(p['networks'])})" if in_net else "Out of network"}
 
 
-def _get(i):
+def _get(i, _s):
     return next((p for p in PROVIDERS if p["npi"] == str(i.get("npi"))), None) or {"error": f"No provider with NPI {i.get('npi')}"}
 
 
-def _compare(i):
+def _compare(i, _s):
     amt = float(i.get("allowed_amount", 0))
     in_net = estimate_cost_share("W20419873", amt, str(i.get("service_type", "other")))
     oon = PLANS["PPO1500"]["outOfNetwork"]
@@ -59,7 +59,7 @@ def _compare(i):
     return {"inNetwork": in_net, "outOfNetwork": {"deductibleRemaining": ded, "appliedToDeductible": applied, "coinsurance": coins, "memberPays": applied + coins, "balanceBilling": "The provider can also bill the difference between their charge and the plan's allowed amount", "basis": f"Separate ${ded} out-of-network deductible (none met), then {int(oon['coinsurance'] * 100)}% coinsurance"}}
 
 
-def _report(i):
+def _report(i, _s):
     p = next((p for p in PROVIDERS if p["npi"] == str(i.get("npi"))), None)
     if not p:
         return {"error": "Unknown provider"}

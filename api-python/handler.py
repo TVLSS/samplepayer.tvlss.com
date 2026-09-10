@@ -11,7 +11,7 @@ from typing import Any
 
 from agents import AGENTS
 from runtime import run_turn
-from budget import reserve, settle, status, turn_cost, CAP
+from budget import CALL_RESERVE, CAP, reserve, reserve_call, settle, status, turn_cost
 
 MAX_TURNS = 24
 MAX_MESSAGE_CHARS = 2000
@@ -55,6 +55,20 @@ def _validate(body: Any) -> tuple[str, list[dict[str, str]]] | str:
     return agent, trimmed
 
 
+def _viewer_ip(event: dict[str, Any]) -> str | None:
+    """The per-visitor limit is keyed on the viewer's address as CloudFront saw it.
+    The CloudFront Function on /api/* sets x-viewer-ip from event.viewer.ip and
+    overwrites any value the client sent. Anything in x-forwarded-for before the
+    last entry is client-supplied (CloudFront appends the real viewer address at
+    the end), so the fallback takes the last entry, never the first."""
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    trusted = (headers.get("x-viewer-ip") or "").strip()
+    if trusted:
+        return trusted
+    xff = [p.strip() for p in (headers.get("x-forwarded-for") or "").split(",") if p.strip()]
+    return (xff[-1] if xff else None) or event.get("requestContext", {}).get("http", {}).get("sourceIp")
+
+
 def handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     path = event.get("rawPath", "/")
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
@@ -78,18 +92,24 @@ def handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         return _json(400, {"error": v})
     agent_id, messages = v
 
-    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
-    viewer_ip = headers.get("x-forwarded-for", "").split(",")[0].strip() or event.get("requestContext", {}).get("http", {}).get("sourceIp")
-    r = reserve(viewer_ip)
+    r = reserve(_viewer_ip(event))
     if not r["ok"]:
         return _json(r["status"], {"error": r["message"]})
+    reserved = CALL_RESERVE
+
+    def reserve_next() -> bool:
+        nonlocal reserved
+        ok = reserve_call(r["day"])
+        if ok:
+            reserved += CALL_RESERVE
+        return ok
 
     lines: list[str] = []
     try:
-        for ev in run_turn(AGENTS[agent_id], messages):
+        for ev in run_turn(AGENTS[agent_id], messages, reserve_next):
             if ev["type"] == "done":
                 try:
-                    ev["budget"] = {"spent": settle(r["day"], turn_cost(ev["usage"])), "cap": CAP}
+                    ev["budget"] = {"spent": settle(r["day"], turn_cost(ev["usage"]), reserved), "cap": CAP}
                 except Exception as err:  # noqa: BLE001
                     print("settle error", err)
             lines.append(json.dumps(ev))

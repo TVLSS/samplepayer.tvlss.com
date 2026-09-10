@@ -99,7 +99,6 @@ CARE_PROGRAMS = [
     {"programId": "TOB", "name": "Tobacco cessation", "description": "Coaching plus covered nicotine replacement and prescription therapy.", "eligibility": "All members 18+", "costShare": 0, "enrollment": "Open"},
     {"programId": "BH", "name": "Behavioral health navigation", "description": "A care navigator finds an in-network therapist with availability within 7 days and handles the first booking.", "eligibility": "All members", "costShare": "Standard specialist cost share applies to therapy visits", "enrollment": "Open"},
 ]
-PROGRAM_ENROLLMENTS: list[dict[str, Any]] = []
 NURSE_LINE = {"phone": "1-800-555-0142", "hours": "24 hours a day, 7 days a week", "note": "Registered nurses; not for emergencies. Call 911 for an emergency."}
 
 PROVIDERS: list[dict[str, Any]] = [

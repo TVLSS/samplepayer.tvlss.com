@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from state import TurnState
 
 ToolResult = dict[str, Any] | list[Any]
 
@@ -14,7 +17,8 @@ class Tool:
     system: str            # which back-office system this tool reads; shown in the ledger
     kind: str              # "read" | "write"; write tools must be confirmed with the user first
     input_schema: dict[str, Any]
-    run: Callable[[dict[str, Any]], ToolResult]
+    # run(input, state): state is this request's private copy of everything writable; see state.py
+    run: Callable[[dict[str, Any], "TurnState"], ToolResult]
 
 
 @dataclass

@@ -3,7 +3,6 @@ import { claims, familyIds, members, priorAuths } from "../data.js";
 import { baseRules, MEMBER_PERSONA } from "./common.js";
 
 const fam = new Set<string>(familyIds);
-const appeals: { appealId: string; claimId: string; reason: string; filed: string; status: string }[] = [];
 
 const tools: Tool[] = [
   {
@@ -52,13 +51,7 @@ const tools: Tool[] = [
     name: "file_appeal", system: "MEDICAL_CORE", kind: "write",
     description: "WRITES: files a first-level member appeal on a denied claim with the member's stated reason. Confirm with the member before calling. Returns an appeal ID and expected decision date.",
     input_schema: { type: "object", properties: { claim_id: { type: "string" }, reason: { type: "string", description: "The member's reason for appeal, in their words" } }, required: ["claim_id", "reason"], additionalProperties: false },
-    run: (i) => { const c = claims.find((c) => c.claimId.toUpperCase() === String(i.claim_id).toUpperCase().trim()); if (!c || c.status !== "Denied") return { error: "Only denied claims can be appealed" }; const appealId = `APL-26-${String(7000 + appeals.length + 1)}`; appeals.push({ appealId, claimId: c.claimId, reason: String(i.reason), filed: "2026-09-10", status: "Received" }); return { appealId, claimId: c.claimId, status: "Received", filed: "2026-09-10", expectedDecisionBy: "2026-10-10", summary: `Appeal ${appealId} filed`, note: "Demo only: nothing was actually filed." }; },
-  },
-  {
-    name: "list_appeals", system: "MEDICAL_CORE", kind: "read",
-    description: "Lists appeals filed during this conversation.",
-    input_schema: { type: "object", properties: {}, additionalProperties: false },
-    run: () => appeals,
+    run: (i, s) => { const c = claims.find((c) => c.claimId.toUpperCase() === String(i.claim_id).toUpperCase().trim()); if (!c || c.status !== "Denied") return { error: "Only denied claims can be appealed" }; const appealId = `APL-26-${String(7000 + s.appeals.length + 1)}`; s.appeals.push({ appealId, claimId: c.claimId, reason: String(i.reason), filed: "2026-09-10", status: "Received" }); return { appealId, claimId: c.claimId, status: "Received", filed: "2026-09-10", expectedDecisionBy: "2026-10-10", summary: `Appeal ${appealId} filed`, note: "Demo only: nothing was actually filed." }; },
   },
 ];
 

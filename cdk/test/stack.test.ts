@@ -74,6 +74,14 @@ test("distribution: alias, TLS 1.2, security headers on both behaviors, logging,
   }) });
 });
 
+test("/api/* runs the viewer-request function, which stamps x-viewer-ip from event.viewer.ip", () => {
+  const t = synth();
+  t.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({
+    CacheBehaviors: [Match.objectLike({ PathPattern: "/api/*", FunctionAssociations: [Match.objectLike({ EventType: "viewer-request" })] })],
+  }) });
+  t.hasResourceProperties("AWS::CloudFront::Function", { FunctionCode: Match.stringLikeRegexp("x-viewer-ip.*event\\.viewer\\.ip") });
+});
+
 test("buckets are private and encrypted; logs expire after 30 days", () => {
   const t = synth();
   t.resourceCountIs("AWS::S3::Bucket", 2);

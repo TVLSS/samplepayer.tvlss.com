@@ -14,6 +14,7 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import type { DocumentType } from "@smithy/types";
 import type { AgentDef, Tool } from "./types.js";
+import { newTurnState } from "./state.js";
 
 const REGION = process.env.AWS_REGION ?? "us-east-2";
 const MODEL_ID = process.env.MODEL_ID ?? "us.anthropic.claude-sonnet-5";
@@ -31,6 +32,18 @@ export type ChatEvent =
 
 export interface ClientMessage { role: "user" | "assistant"; content: string }
 
+export interface TurnOptions {
+  /**
+   * Called before every model call after the first (the caller reserves the
+   * first one before streaming starts). Return false to stop the turn: the
+   * budget is enforced per model call, not per turn, so a turn can never run
+   * further than what has been reserved for it.
+   */
+  reserveCall?: () => Promise<boolean>;
+}
+
+export const BUDGET_STOP_TEXT = "\n\nThis demo has used its model budget for today, so I have to stop here. It resets at midnight UTC.";
+
 function toBedrockTools(tools: Tool[]): BedrockTool[] {
   return tools.map((t) => ({ toolSpec: { name: t.name, description: t.description, inputSchema: { json: t.input_schema as unknown as DocumentType } } }));
 }
@@ -47,13 +60,19 @@ function summarize(output: unknown): string {
   return String(output);
 }
 
-export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (e: ChatEvent) => void | Promise<void>): Promise<void> {
+export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (e: ChatEvent) => void | Promise<void>, opts: TurnOptions = {}): Promise<void> {
+  const state = newTurnState();
   const toolsByName = new Map(agent.tools.map((t) => [t.name, t]));
   const messages: Message[] = history.map((m) => ({ role: m.role, content: [{ text: m.content }] }));
   let totalIn = 0;
   let totalOut = 0;
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+    if (round > 0 && opts.reserveCall && !(await opts.reserveCall())) {
+      emit({ type: "text", delta: BUDGET_STOP_TEXT });
+      await emit({ type: "done", stopReason: "budget", usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
+      return;
+    }
     const res = await client.send(
       new ConverseStreamCommand({
         modelId: MODEL_ID,
@@ -114,7 +133,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
       let output: unknown;
       let ok = true;
       try {
-        output = tool ? tool.run(input) : { error: `Unknown tool ${tu.name}` };
+        output = tool ? tool.run(input, state) : { error: `Unknown tool ${tu.name}` };
         if (!tool) ok = false;
       } catch (err) {
         ok = false;

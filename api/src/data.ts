@@ -193,8 +193,6 @@ export const carePrograms = [
   { programId: "BH", name: "Behavioral health navigation", description: "A care navigator finds an in-network therapist with availability within 7 days and handles the first booking.", eligibility: "All members", costShare: "Standard specialist cost share applies to therapy visits", enrollment: "Open" },
 ];
 
-export const programEnrollments: { memberId: string; programId: string; enrolledDate: string; status: string }[] = [];
-
 export const nurseLine = { phone: "1-800-555-0142", hours: "24 hours a day, 7 days a week", note: "Registered nurses; not for emergencies. Call 911 for an emergency." };
 
 export interface Provider { npi: string; name: string; specialty: string; practice: string; address: string; phone: string; networks: string[]; tier: number | null; acceptingNewPatients: boolean; languages: string[]; gender: "F" | "M" | null; telehealth: boolean; distanceMiles: number; qualityRating: number; nextAvailable: string | null }

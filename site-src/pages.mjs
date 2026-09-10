@@ -3,7 +3,7 @@
 export const home = {
   h1: "Seven assistants for a health plan's front line.",
   lede: "Each one answers a member or an employer by reading the systems the plan already runs. Every demo is live: ask a question, then watch which systems it called and what came back.",
-  meta: "Built by TVLSS on AWS serverless with Claude on Amazon Bedrock. Everyone and everything in these demos is fictional, and nothing you type is stored.",
+  meta: "Built by TVLSS on AWS serverless with Claude on Amazon Bedrock. Everyone and everything in these demos is fictional. Nothing you type is kept once the reply is sent; the conversation lives only in this browser tab.",
   how: "The site is static files on S3 behind CloudFront. Questions go to one Lambda function that runs the agent loop: it sends the conversation and the agent's tool list to Claude on Bedrock, executes the tools Claude asks for against a synthetic copy of each back-office system, and streams the answer and every tool call back to the browser as they happen. Adding a benefit system means adding one adapter and one tool description; the agent learns to use it from the description alone.",
   facts: [
     ["Where it runs", "One CloudFormation stack in us-east-2 (Ohio), the nearest region to Iowa. No servers, no containers, nothing idling."],

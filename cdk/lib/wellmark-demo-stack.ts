@@ -158,12 +158,17 @@ export class WellmarkDemoStack extends cdk.Stack {
 
     // ---- CloudFront ----
     const urlRewrite = new cloudfront.Function(this, "UrlRewriteFunction", {
-      comment: "Map /claims to /claims.html and directory paths to index.html",
+      comment: "Map /claims to /claims.html and directory paths to index.html; stamp the viewer IP on /api/*",
       runtime: cloudfront.FunctionRuntime.JS_2_0,
       code: cloudfront.FunctionCode.fromInline(`function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  if (uri.indexOf('/api/') === 0) { return request; }
+  if (uri.indexOf('/api/') === 0) {
+    // The per-visitor rate limit keys on this. event.viewer.ip is what CloudFront
+    // saw on the TLS connection; setting it here overwrites anything the client sent.
+    request.headers['x-viewer-ip'] = { value: event.viewer.ip };
+    return request;
+  }
   if (uri.endsWith('/')) { request.uri = uri + 'index.html'; return request; }
   var last = uri.substring(uri.lastIndexOf('/') + 1);
   if (last.indexOf('.') === -1) { request.uri = uri + '.html'; }
@@ -235,6 +240,7 @@ export class WellmarkDemoStack extends cdk.Stack {
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           responseHeadersPolicy: securityHeaders,
+          functionAssociations: [{ function: urlRewrite, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }],
         },
       },
       errorResponses: [

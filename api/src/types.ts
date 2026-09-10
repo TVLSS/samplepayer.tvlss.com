@@ -1,6 +1,8 @@
 // Shared shapes for demo agents. Each agent is a system prompt plus a set of
 // tools that read (or pretend to write) a synthetic back-office system.
 
+import type { TurnState } from "./state.js";
+
 export type JsonSchema = {
   type: "object";
   properties: Record<string, unknown>;
@@ -18,7 +20,8 @@ export interface Tool {
   /** "read" tools are safe; "write" tools must be confirmed with the user first. */
   kind: "read" | "write";
   input_schema: JsonSchema;
-  run: (input: Record<string, unknown>) => ToolResult;
+  /** `state` is this request's private copy of everything writable; see state.ts. */
+  run: (input: Record<string, unknown>, state: TurnState) => ToolResult;
 }
 
 export interface AgentDef {

@@ -3,7 +3,7 @@ from data import MEMBERS, PLANS, DENTAL_PLAN, VISION_PLAN, PHARMACY_BENEFIT, SPE
 from agents.common import base_rules, who, MEMBER_PERSONA, MEMBER_ID_PROP
 
 
-def _list_systems(_i):
+def _list_systems(_i, _s):
     return [
         {"system": "MEDICAL_CORE", "covers": "Medical plan benefits: deductibles, copays, coinsurance, covered services, prior authorization rules", "connected": "Original benefits chatbot scope"},
         {"system": "DENTAL_ADMIN", "covers": "Dental plan coverage levels, annual maximum, orthodontia", "connected": "Added as an adapter"},
@@ -13,22 +13,22 @@ def _list_systems(_i):
     ]
 
 
-def _medical(i):
+def _medical(i, _s):
     m = MEMBERS[who(i.get("member_id"))]
     return {"member": m["name"], **PLANS[m["planId"]]}
 
 
-def _dental(i):
+def _dental(i, _s):
     mid = who(i.get("member_id"))
     a = member_accumulators(mid)
     return {"member": MEMBERS[mid]["name"], **DENTAL_PLAN, "usedThisYear": a["dental"]["used"], "remainingAnnualMax": a["dental"]["annualMax"] - a["dental"]["used"]}
 
 
-def _vision(i):
+def _vision(i, _s):
     return {"member": MEMBERS[who(i.get("member_id"))]["name"], **VISION_PLAN, "lastExam": "2025-10-03", "lastFrames": "2024-11-19", "framesEligibleAgain": "2026-11-19"}
 
 
-def _drug(i):
+def _drug(i, _s):
     key = str(i.get("drug_name", "")).lower().strip()
     hit = next(((k, f) for k, f in PHARMACY_BENEFIT["formulary"].items() if k in key or key in k), None)
     if not hit:
@@ -38,7 +38,7 @@ def _drug(i):
     return {"drug": name, "tier": f["tier"], "tierLabel": tier["label"], "cost": tier, "priorAuthRequired": f["priorAuth"], "alternatives": f["alternatives"], "note": f.get("note"), "mailOrder": PHARMACY_BENEFIT["mailOrder"]}
 
 
-def _spending(i):
+def _spending(i, _s):
     mid = who(i.get("member_id"))
     s = SPENDING_ACCOUNTS.get(mid)
     if s:
@@ -46,7 +46,7 @@ def _spending(i):
     return {"member": MEMBERS[mid]["name"], "fsa": None, "hsa": None, "note": "No spending accounts for this member"}
 
 
-def _estimate(i):
+def _estimate(i, _s):
     return estimate_cost_share(who(i.get("member_id")), float(i.get("allowed_amount", 0)), str(i.get("service_type", "other")))
 
 

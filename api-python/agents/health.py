@@ -1,7 +1,7 @@
 import re
 
 from agent_types import AgentDef, Tool
-from data import PRIOR_AUTHS, CARE_PROGRAMS, PROGRAM_ENROLLMENTS, NURSE_LINE, PLANS, FAMILY_IDS, MEMBERS, ACCUMULATORS, CLAIMS
+from data import PRIOR_AUTHS, CARE_PROGRAMS, NURSE_LINE, PLANS, FAMILY_IDS, MEMBERS, ACCUMULATORS, CLAIMS
 from agents.common import base_rules, who, MEMBER_PERSONA
 
 _RULES = [
@@ -14,11 +14,11 @@ _RULES = [
 ]
 
 
-def _list_pa(i):
+def _list_pa(i, _s):
     return [{**p, "patient": MEMBERS[p["memberId"]]["name"]} for p in PRIOR_AUTHS if p["memberId"] in FAMILY_IDS and (not i.get("member_id") or p["memberId"] == who(i.get("member_id")))]
 
 
-def _check(i):
+def _check(i, _s):
     s = str(i.get("service_description", ""))
     rule = next((r for r in _RULES if r[0].search(s)), None)
     plan_list = PLANS["PPO1500"]["priorAuthRequired"]
@@ -32,25 +32,25 @@ def _check(i):
     return out
 
 
-def _programs(_i):
+def _programs(_i, s):
     has_msk = any(c["memberId"] == "W20419873" and re.search(r"Orthopedics|Physical Therapy", c["provider"]) for c in CLAIMS)
-    return [{**p, "enrolled": any(e["programId"] == p["programId"] and e["memberId"] == "W20419873" for e in PROGRAM_ENROLLMENTS), "likelyEligible": has_msk if p["programId"] == "MSK" else p["programId"] in ("TOB", "BH")} for p in CARE_PROGRAMS]
+    return [{**p, "enrolled": any(e["programId"] == p["programId"] and e["memberId"] == "W20419873" for e in s.program_enrollments), "likelyEligible": has_msk if p["programId"] == "MSK" else p["programId"] in ("TOB", "BH")} for p in CARE_PROGRAMS]
 
 
-def _enroll(i):
+def _enroll(i, s):
     p = next((p for p in CARE_PROGRAMS if p["programId"] == i.get("program_id")), None)
     if not p:
         return {"error": "Unknown program"}
-    PROGRAM_ENROLLMENTS.append({"memberId": "W20419873", "programId": p["programId"], "enrolledDate": "2026-09-10", "status": "Enrolled"})
+    s.program_enrollments.append({"memberId": "W20419873", "programId": p["programId"], "enrolledDate": "2026-09-10", "status": "Enrolled"})
     return {"program": p["name"], "status": "Enrolled", "enrolledDate": "2026-09-10", "nextStep": "A program coordinator calls within 2 business days to schedule the first session", "summary": f"Enrolled in {p['name']}", "note": "Demo only: nothing was actually enrolled."}
 
 
-def _nurse(_i):
+def _nurse(_i, _s):
     c = PLANS["PPO1500"]["copays"]
     return {"nurseLine": NURSE_LINE, "telehealth": {"copay": c["telehealth"], "note": "Virtual urgent care visits through the plan's telehealth partner, 24/7"}, "urgentCareCopay": c["urgentCare"], "emergencyCopay": c["emergency"]}
 
 
-def _expedite(i):
+def _expedite(i, _s):
     pa = next((p for p in PRIOR_AUTHS if p["authId"].upper() == str(i.get("auth_id")).upper().strip()), None)
     if not pa:
         return {"error": f"No authorization {i.get('auth_id')}"}

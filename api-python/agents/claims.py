@@ -2,10 +2,7 @@ from agent_types import AgentDef, Tool
 from data import CLAIMS, FAMILY_IDS, PRIOR_AUTHS
 from agents.common import base_rules, MEMBER_PERSONA
 
-_appeals: list[dict] = []
-
-
-def _find(i):
+def _find(i, _s):
     out = []
     for c in CLAIMS:
         if c["memberId"] not in FAMILY_IDS:
@@ -26,12 +23,12 @@ def _claim(cid):
     return next((c for c in CLAIMS if c["claimId"].upper() == str(cid).upper().strip()), None)
 
 
-def _get(i):
+def _get(i, _s):
     c = _claim(i.get("claim_id"))
     return c if c and c["memberId"] in FAMILY_IDS else {"error": f"No claim {i.get('claim_id')} on this family's account"}
 
 
-def _explain(i):
+def _explain(i, _s):
     c = _claim(i.get("claim_id"))
     if not c or c["memberId"] not in FAMILY_IDS:
         return {"error": f"No claim {i.get('claim_id')}"}
@@ -40,7 +37,7 @@ def _explain(i):
     return {"claimId": c["claimId"], "denialCode": c["denialCode"], "denialReason": c["denialReason"], "howToResolve": c["notes"], "appealDeadline": c["appealDeadline"], "options": ["Ask the provider to submit a retroactive prior authorization with clinical notes", "File a member appeal with a statement of medical necessity", "Ask the provider about their financial hardship policy"]}
 
 
-def _pa(i):
+def _pa(i, _s):
     c = _claim(i.get("claim_id"))
     if not c:
         return {"error": "Unknown claim"}
@@ -48,7 +45,7 @@ def _pa(i):
     return pa or {"claimId": c["claimId"], "priorAuth": None, "summary": "No prior authorization on file for this service"}
 
 
-def _eob(i):
+def _eob(i, _s):
     c = _claim(i.get("claim_id"))
     if not c or c["memberId"] not in FAMILY_IDS:
         return {"error": "Unknown claim"}
@@ -57,12 +54,12 @@ def _eob(i):
     return {"claimId": c["claimId"], "eobAvailable": True, "downloadUrl": f"https://wellmark.tvlss.com/eob/{c['claimId']}.pdf", "issued": c["processedDate"], "totals": {"billed": sum(l["billed"] for l in c["lines"]), "allowed": sum(l["allowed"] or 0 for l in c["lines"]), "planPaid": sum(l["planPaid"] or 0 for l in c["lines"]), "youOwe": sum(l["memberResponsibility"] or 0 for l in c["lines"])}}
 
 
-def _appeal(i):
+def _appeal(i, s):
     c = _claim(i.get("claim_id"))
     if not c or c["status"] != "Denied":
         return {"error": "Only denied claims can be appealed"}
-    appeal_id = f"APL-26-{7000 + len(_appeals) + 1}"
-    _appeals.append({"appealId": appeal_id, "claimId": c["claimId"], "reason": str(i.get("reason")), "filed": "2026-09-10", "status": "Received"})
+    appeal_id = f"APL-26-{7000 + len(s.appeals) + 1}"
+    s.appeals.append({"appealId": appeal_id, "claimId": c["claimId"], "reason": str(i.get("reason")), "filed": "2026-09-10", "status": "Received"})
     return {"appealId": appeal_id, "claimId": c["claimId"], "status": "Received", "filed": "2026-09-10", "expectedDecisionBy": "2026-10-10", "summary": f"Appeal {appeal_id} filed", "note": "Demo only: nothing was actually filed."}
 
 
@@ -73,7 +70,6 @@ tools = [
     Tool("get_prior_auth_for_claim", "Checks whether a prior authorization exists for a claim's service and returns its decision and validity window.", "UTILIZATION_MGMT", "read", {"type": "object", "properties": {"claim_id": {"type": "string"}}, "required": ["claim_id"], "additionalProperties": False}, _pa),
     Tool("get_eob", "Returns the Explanation of Benefits summary for a processed claim and a link the member can download it from.", "MEDICAL_CORE", "read", {"type": "object", "properties": {"claim_id": {"type": "string"}}, "required": ["claim_id"], "additionalProperties": False}, _eob),
     Tool("file_appeal", "WRITES: files a first-level member appeal on a denied claim with the member's stated reason. Confirm with the member before calling. Returns an appeal ID and expected decision date.", "MEDICAL_CORE", "write", {"type": "object", "properties": {"claim_id": {"type": "string"}, "reason": {"type": "string", "description": "The member's reason for appeal, in their words"}}, "required": ["claim_id", "reason"], "additionalProperties": False}, _appeal),
-    Tool("list_appeals", "Lists appeals filed during this conversation.", "MEDICAL_CORE", "read", {"type": "object", "properties": {}, "additionalProperties": False}, lambda _i: _appeals),
 ]
 
 claims_agent = AgentDef(

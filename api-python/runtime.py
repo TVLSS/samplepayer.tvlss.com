@@ -6,9 +6,11 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 import boto3
+
+from state import new_turn_state
 
 REGION = os.environ.get("AWS_REGION", "us-east-2")
 MODEL_ID = os.environ.get("MODEL_ID", "us.anthropic.claude-sonnet-5")
@@ -35,12 +37,23 @@ def _summarize(output: Any) -> str:
     return str(output)
 
 
-def run_turn(agent, history: list[dict[str, str]]) -> Iterator[dict[str, Any]]:
+BUDGET_STOP_TEXT = "\n\nThis demo has used its model budget for today, so I have to stop here. It resets at midnight UTC."
+
+
+def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bool] | None = None) -> Iterator[dict[str, Any]]:
+    """reserve_call, if given, runs before every model call after the first (the
+    caller reserves the first one before answering). Returning False stops the
+    turn: the budget is enforced per model call, not per turn."""
+    state = new_turn_state()
     tools_by_name = {t.name: t for t in agent.tools}
     messages: list[dict[str, Any]] = [{"role": m["role"], "content": [{"text": m["content"]}]} for m in history]
     total_in = total_out = 0
 
-    for _round in range(MAX_TOOL_ROUNDS + 1):
+    for round_ in range(MAX_TOOL_ROUNDS + 1):
+        if round_ > 0 and reserve_call is not None and not reserve_call():
+            yield {"type": "text", "delta": BUDGET_STOP_TEXT}
+            yield {"type": "done", "stopReason": "budget", "usage": {"inputTokens": total_in, "outputTokens": total_out}, "model": MODEL_ID}
+            return
         res = _client.converse_stream(
             modelId=MODEL_ID,
             system=[{"text": agent.system}],
@@ -100,7 +113,7 @@ def run_turn(agent, history: list[dict[str, str]]) -> Iterator[dict[str, Any]]:
             t0 = time.time()
             ok = True
             try:
-                output = tool.run(inp) if tool else {"error": f"Unknown tool {tu.get('name')}"}
+                output = tool.run(inp, state) if tool else {"error": f"Unknown tool {tu.get('name')}"}
                 ok = tool is not None
             except Exception as err:  # noqa: BLE001 - a tool failure is reported to the model, not raised
                 ok = False
