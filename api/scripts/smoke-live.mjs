@@ -94,7 +94,7 @@ async function turn(agent, q) {
 
 function report(t) {
   if (t.error) process.stdout.write(`  !! ${t.error}\n`);
-  else process.stdout.write(`  [${t.stopReason}] ${t.ms}ms total, first text at ${t.firstText}ms, ${t.calls.length} tool calls, tokens in=${t.usage?.inputTokens} out=${t.usage?.outputTokens}${t.budget ? `, today $${t.budget.spent.toFixed(4)} of $${t.budget.cap}` : ""}\n`);
+  else process.stdout.write(`  [${t.stopReason}] ${t.ms}ms total, first text at ${t.firstText}ms, ${t.calls.length} tool calls, tokens in=${t.usage?.inputTokens} out=${t.usage?.outputTokens} cached=${t.usage?.cacheReadInputTokens ?? 0}${t.budget ? `, today $${t.budget.spent.toFixed(4)} of $${t.budget.cap}` : ""}\n`);
   process.stdout.write("\n" + t.text.trim().split("\n").map((l) => "  | " + l).join("\n") + "\n");
 }
 

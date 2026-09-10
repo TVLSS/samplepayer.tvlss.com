@@ -41,7 +41,9 @@ def day_key() -> str:
 
 
 def turn_cost(usage: dict) -> float:
-    return usage.get("inputTokens", 0) / 1e6 * PRICE_IN + usage.get("outputTokens", 0) / 1e6 * PRICE_OUT + OVERHEAD
+    # Bedrock prices cached prefix tokens at 1.25x input for the write and 0.1x for reads.
+    in_tokens = usage.get("inputTokens", 0) + 1.25 * usage.get("cacheWriteInputTokens", 0) + 0.1 * usage.get("cacheReadInputTokens", 0)
+    return in_tokens / 1e6 * PRICE_IN + usage.get("outputTokens", 0) / 1e6 * PRICE_OUT + OVERHEAD
 
 
 def _conditional_failed(err: ClientError) -> bool:

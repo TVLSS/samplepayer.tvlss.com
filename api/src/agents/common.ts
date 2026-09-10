@@ -21,6 +21,7 @@ How to work:
 Style:
 - Plain, warm, direct. Short paragraphs. Use a hyphen bullet list when listing several items; otherwise prose. No headings, no tables, no emoji.
 - Lead with the answer, then the detail that matters. Dollar amounts as $1,234. Dates as September 3, 2026.
+- Aim for under 150 words. Go longer only when the user asked several things or a walkthrough of numbers needs it. No closing offer of more help; one short follow-up question is fine when the next step needs it.
 - Do not mention tool names or that you are an AI model unless asked. Do not narrate what you are about to do; just do it, then answer.
 ${opts.extra ? "\n" + opts.extra : ""}`;
 }

@@ -30,10 +30,13 @@ export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "tool_call"; id: string; name: string; system: string; kind: "read" | "write"; input: unknown }
   | { type: "tool_result"; id: string; name: string; ok: boolean; summary: string; output: unknown; ms: number }
-  | { type: "done"; stopReason: string; usage: { inputTokens: number; outputTokens: number }; model: string; budget?: { spent: number; cap: number } }
+  | { type: "done"; stopReason: string; usage: Usage; model: string; budget?: { spent: number; cap: number } }
   | { type: "error"; message: string };
 
 export interface ClientMessage { role: "user" | "assistant"; content: string }
+
+/** Bedrock reports cached prefix tokens separately from inputTokens; both feed the cost estimate. */
+export interface Usage { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheWriteInputTokens: number }
 
 export interface TurnOptions {
   /**
@@ -76,19 +79,22 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
     role: m.role,
     content: GUARDRAIL_ID && i === history.length - 1 ? [{ guardContent: { text: { text: m.content } } }] : [{ text: m.content }],
   }));
-  let totalIn = 0;
-  let totalOut = 0;
+  const usage: Usage = { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, cacheWriteInputTokens: 0 };
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     if (round > 0 && opts.reserveCall && !(await opts.reserveCall())) {
       emit({ type: "text", delta: BUDGET_STOP_TEXT });
-      await emit({ type: "done", stopReason: "budget", usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
+      await emit({ type: "done", stopReason: "budget", usage, model: MODEL_ID });
       return;
     }
     const res = await client.send(
       new ConverseStreamCommand({
         modelId: MODEL_ID,
-        system: [{ text: agent.system }],
+        // The cache point covers everything before it: the tool definitions and the system
+        // prompt, about 1,900 tokens that never change between calls. Reads cost a tenth of
+        // the input price and skip the prefill; the write is charged once per five minutes.
+        // Checked 2026-09-10: this profile in us-east-2 honours it (cacheReadInputTokens > 0).
+        system: [{ text: agent.system }, { cachePoint: { type: "default" } }],
         messages,
         toolConfig: { tools: toBedrockTools(agent.tools) },
         inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
@@ -123,8 +129,11 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
       } else if (ev.messageStop) {
         stopReason = ev.messageStop.stopReason ?? "end_turn";
       } else if (ev.metadata?.usage) {
-        totalIn += ev.metadata.usage.inputTokens ?? 0;
-        totalOut += ev.metadata.usage.outputTokens ?? 0;
+        const u = ev.metadata.usage;
+        usage.inputTokens += u.inputTokens ?? 0;
+        usage.outputTokens += u.outputTokens ?? 0;
+        usage.cacheReadInputTokens += u.cacheReadInputTokens ?? 0;
+        usage.cacheWriteInputTokens += u.cacheWriteInputTokens ?? 0;
       }
     }
     if (currentText) assistantContent.push({ text: currentText });
@@ -132,7 +141,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
 
     const toolUses = assistantContent.filter((b) => b.toolUse).map((b) => b.toolUse!);
     if (stopReason !== "tool_use" || toolUses.length === 0) {
-      await emit({ type: "done", stopReason, usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
+      await emit({ type: "done", stopReason, usage, model: MODEL_ID });
       return;
     }
 
@@ -159,5 +168,5 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
     messages.push({ role: "user", content: results });
   }
   emit({ type: "text", delta: "\n\nI stopped after several system lookups without reaching an answer. Try narrowing the question." });
-  await emit({ type: "done", stopReason: "max_tool_rounds", usage: { inputTokens: totalIn, outputTokens: totalOut }, model: MODEL_ID });
+  await emit({ type: "done", stopReason: "max_tool_rounds", usage, model: MODEL_ID });
 }

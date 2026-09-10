@@ -127,6 +127,10 @@ per turn and bounded by reserved concurrency; the AWS Budget below is what watch
 - Prices are parameters (`PriceInPerMtok` 3, `PriceOutPerMtok` 15), set above Sonnet 5 list price
   so the estimate stops early rather than late. Fix them if you switch models. The Lambda logs a
   warning if a turn ever costs more than it reserved.
+- The tool definitions and system prompt (about 1,900 tokens) sit behind a Bedrock prompt-cache
+  point, so every call after the first in five minutes reads them at a tenth of the input price and
+  skips their prefill. The cost estimate prices cache writes at 1.25x and reads at 0.1x, per Bedrock.
+  Checked on the Sonnet 5 profile in us-east-2 before adopting; re-check if you switch models.
 - Per-visitor limit: `IpTurnsPerHour` (40), keyed on a hash of the viewer address. The CloudFront
   Function on `/api/*` writes that address into `x-viewer-ip` from `event.viewer.ip`, overwriting
   anything the client sent; the Lambda never trusts a client-supplied `X-Forwarded-For` entry.

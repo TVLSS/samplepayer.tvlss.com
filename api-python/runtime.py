@@ -58,16 +58,20 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
         for i, m in enumerate(history)
     ]
     guard = {"guardrailConfig": {"guardrailIdentifier": GUARDRAIL_ID, "guardrailVersion": GUARDRAIL_VERSION, "streamProcessingMode": "async"}} if GUARDRAIL_ID else {}
-    total_in = total_out = 0
+    # Bedrock reports cached prefix tokens separately from inputTokens; both feed the cost estimate.
+    usage = {"inputTokens": 0, "outputTokens": 0, "cacheReadInputTokens": 0, "cacheWriteInputTokens": 0}
 
     for round_ in range(MAX_TOOL_ROUNDS + 1):
         if round_ > 0 and reserve_call is not None and not reserve_call():
             yield {"type": "text", "delta": BUDGET_STOP_TEXT}
-            yield {"type": "done", "stopReason": "budget", "usage": {"inputTokens": total_in, "outputTokens": total_out}, "model": MODEL_ID}
+            yield {"type": "done", "stopReason": "budget", "usage": dict(usage), "model": MODEL_ID}
             return
         res = _client.converse_stream(
             modelId=MODEL_ID,
-            system=[{"text": agent.system}],
+            # The cache point covers everything before it: the tool definitions and the system
+            # prompt, about 1,900 tokens that never change between calls. Reads cost a tenth of
+            # the input price and skip the prefill. Checked 2026-09-10 on this profile in us-east-2.
+            system=[{"text": agent.system}, {"cachePoint": {"type": "default"}}],
             messages=messages,
             toolConfig={"tools": _bedrock_tools(agent)},
             inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS},
@@ -103,8 +107,8 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
             elif "messageStop" in ev:
                 stop_reason = ev["messageStop"].get("stopReason", "end_turn")
             elif "metadata" in ev and "usage" in ev["metadata"]:
-                total_in += ev["metadata"]["usage"].get("inputTokens", 0)
-                total_out += ev["metadata"]["usage"].get("outputTokens", 0)
+                for k in usage:
+                    usage[k] += ev["metadata"]["usage"].get(k, 0)
 
         if current_text:
             assistant_content.append({"text": current_text})
@@ -113,7 +117,7 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
 
         tool_uses = [b["toolUse"] for b in assistant_content if "toolUse" in b]
         if stop_reason != "tool_use" or not tool_uses:
-            yield {"type": "done", "stopReason": stop_reason, "usage": {"inputTokens": total_in, "outputTokens": total_out}, "model": MODEL_ID}
+            yield {"type": "done", "stopReason": stop_reason, "usage": dict(usage), "model": MODEL_ID}
             return
 
         results: list[dict[str, Any]] = []
@@ -136,4 +140,4 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
         messages.append({"role": "user", "content": results})
 
     yield {"type": "text", "delta": "\n\nI stopped after several system lookups without reaching an answer. Try narrowing the question."}
-    yield {"type": "done", "stopReason": "max_tool_rounds", "usage": {"inputTokens": total_in, "outputTokens": total_out}, "model": MODEL_ID}
+    yield {"type": "done", "stopReason": "max_tool_rounds", "usage": dict(usage), "model": MODEL_ID}

@@ -33,8 +33,10 @@ const ddb = new DynamoDBClient({});
 
 export const dayKey = (d = new Date()) => d.toISOString().slice(0, 10);
 
-export function turnCost(usage: { inputTokens: number; outputTokens: number }): number {
-  return (usage.inputTokens / 1e6) * PRICE_IN + (usage.outputTokens / 1e6) * PRICE_OUT + OVERHEAD;
+// Bedrock prices cached prefix tokens at 1.25x input for the write and 0.1x for reads.
+export function turnCost(usage: { inputTokens: number; outputTokens: number; cacheReadInputTokens?: number; cacheWriteInputTokens?: number }): number {
+  const inTokens = usage.inputTokens + 1.25 * (usage.cacheWriteInputTokens ?? 0) + 0.1 * (usage.cacheReadInputTokens ?? 0);
+  return (inTokens / 1e6) * PRICE_IN + (usage.outputTokens / 1e6) * PRICE_OUT + OVERHEAD;
 }
 
 export type Reservation = { ok: true; day: string } | { ok: false; status: number; message: string };
