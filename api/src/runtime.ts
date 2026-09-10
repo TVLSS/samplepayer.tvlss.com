@@ -68,7 +68,10 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
   const toolsByName = new Map(agent.tools.map((t) => [t.name, t]));
   // Only the visitor's latest message is wrapped for input assessment; with a guardContent
   // block present the guardrail leaves earlier turns and tool results alone. Output is
-  // always assessed, in sync mode, before it is streamed on.
+  // assessed in async mode: text streams as the model produces it and the guardrail
+  // replaces a chunk if it intervenes. Sync mode held the whole answer until assessed,
+  // which doubled time-to-first-text (measured 2026-09-10); every block in the test set
+  // happens on input anyway, and input assessment is identical in both modes.
   const messages: Message[] = history.map((m, i) => ({
     role: m.role,
     content: GUARDRAIL_ID && i === history.length - 1 ? [{ guardContent: { text: { text: m.content } } }] : [{ text: m.content }],
@@ -89,7 +92,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
         messages,
         toolConfig: { tools: toBedrockTools(agent.tools) },
         inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
-        guardrailConfig: GUARDRAIL_ID ? { guardrailIdentifier: GUARDRAIL_ID, guardrailVersion: GUARDRAIL_VERSION, streamProcessingMode: "sync" } : undefined,
+        guardrailConfig: GUARDRAIL_ID ? { guardrailIdentifier: GUARDRAIL_ID, guardrailVersion: GUARDRAIL_VERSION, streamProcessingMode: "async" } : undefined,
       }),
     );
     if (!res.stream) throw new Error("Bedrock returned no stream");

@@ -51,12 +51,13 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
     tools_by_name = {t.name: t for t in agent.tools}
     # Only the visitor's latest message is wrapped for input assessment; with a guardContent
     # block present the guardrail leaves earlier turns and tool results alone. Output is
-    # always assessed, in sync mode, before it is returned.
+    # assessed in async mode, same as runtime.ts: sync mode held the whole answer until
+    # assessed, and every block in the test set happens on input anyway.
     messages: list[dict[str, Any]] = [
         {"role": m["role"], "content": [{"guardContent": {"text": {"text": m["content"]}}}] if GUARDRAIL_ID and i == len(history) - 1 else [{"text": m["content"]}]}
         for i, m in enumerate(history)
     ]
-    guard = {"guardrailConfig": {"guardrailIdentifier": GUARDRAIL_ID, "guardrailVersion": GUARDRAIL_VERSION, "streamProcessingMode": "sync"}} if GUARDRAIL_ID else {}
+    guard = {"guardrailConfig": {"guardrailIdentifier": GUARDRAIL_ID, "guardrailVersion": GUARDRAIL_VERSION, "streamProcessingMode": "async"}} if GUARDRAIL_ID else {}
     total_in = total_out = 0
 
     for round_ in range(MAX_TOOL_ROUNDS + 1):

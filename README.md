@@ -150,9 +150,11 @@ hate, insults, sexual content, violence, misconduct and prompt attacks on input,
 identifiers that never belong in a health-plan answer (SSN, card and bank numbers, passport, driver
 ID, passwords, PINs, AWS keys) in both directions. Only the visitor's latest message is assessed on
 input, by wrapping it in a `guardContent` block, so tool results and earlier turns are not
-re-classified; output is assessed in sync streaming mode before it reaches the browser. The system
-prompt rules still apply on top; the guardrail is what turns the clinical rule from a request into a
-filter. It runs the `DRAFT` version so a template change takes effect on deploy; a real product
+re-classified; output is assessed in async streaming mode, so text streams as the model produces it
+and the guardrail replaces a chunk if it intervenes. Sync mode was tried first and held the whole
+answer until assessed, doubling time-to-first-text; every block in the test set happens on input,
+where the two modes are identical. The system prompt rules still apply on top; the guardrail is what
+turns the clinical rule from a request into a filter. It runs the `DRAFT` version so a template change takes effect on deploy; a real product
 pins a numbered `AWS::Bedrock::GuardrailVersion`. Cost is roughly a tenth of a cent per turn.
 
 The guardrail has a test set: `api/scripts/smoke-live.mjs --guardrails` sends a symptom question

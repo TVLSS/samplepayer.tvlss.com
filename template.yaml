@@ -62,8 +62,8 @@ Conditions:
 Resources:
   # Bedrock Guardrail applied to every model call in both Lambdas. Input: only the
   # visitor's latest message is assessed (the runtime wraps it in guardContent, so
-  # tool results are not). Output: assessed in sync streaming mode before it reaches
-  # the browser. DRAFT is the working version, so a template change takes effect on
+  # tool results are not). Output: assessed in async streaming mode so text still
+  # streams. DRAFT is the working version, so a template change takes effect on
   # deploy without a new GuardrailVersion resource; pin a numbered version for a
   # real product.
   Guardrail:
