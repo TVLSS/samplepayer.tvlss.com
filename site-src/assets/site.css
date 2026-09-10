@@ -141,7 +141,7 @@ p { margin: 0 0 1em; max-width: 64ch; }
 .idcard::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(90deg, var(--card-ink), #1d5fd1 60%, var(--amber)); }
 .idcard::after { content: ""; position: absolute; right: -40px; bottom: -60px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(29,95,209,.14), transparent 70%); }
 .idcard .plan { font-weight: 800; font-size: .95rem; letter-spacing: -.01em; display: flex; align-items: center; gap: .6rem; }
-.idcard .plan > span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.idcard .plan > span:first-child { flex: 1; min-width: 0; line-height: 1.15; }
 .idcard .plan small { font-weight: 600; font-size: .7rem; color: #5b6b7a; }
 .idcard .chip { width: 34px; height: 26px; border-radius: 5px; background: linear-gradient(135deg, #e8c777, #c79a3a); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
 .idcard .name { font-family: var(--serif); font-size: 1.45rem; line-height: 1.1; }
