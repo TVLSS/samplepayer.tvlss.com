@@ -20,6 +20,9 @@ const REGION = process.env.AWS_REGION ?? "us-east-2";
 const MODEL_ID = process.env.MODEL_ID ?? "us.anthropic.claude-sonnet-5";
 const MAX_TOOL_ROUNDS = Number(process.env.MAX_TOOL_ROUNDS ?? 8);
 const MAX_OUTPUT_TOKENS = Number(process.env.MAX_OUTPUT_TOKENS ?? 1200);
+// Bedrock Guardrail (template.yaml). Empty id = off, which is what the in-process smoke script gets.
+const GUARDRAIL_ID = process.env.GUARDRAIL_ID ?? "";
+const GUARDRAIL_VERSION = process.env.GUARDRAIL_VERSION ?? "DRAFT";
 
 const client = new BedrockRuntimeClient({ region: REGION });
 
@@ -63,7 +66,13 @@ function summarize(output: unknown): string {
 export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (e: ChatEvent) => void | Promise<void>, opts: TurnOptions = {}): Promise<void> {
   const state = newTurnState();
   const toolsByName = new Map(agent.tools.map((t) => [t.name, t]));
-  const messages: Message[] = history.map((m) => ({ role: m.role, content: [{ text: m.content }] }));
+  // Only the visitor's latest message is wrapped for input assessment; with a guardContent
+  // block present the guardrail leaves earlier turns and tool results alone. Output is
+  // always assessed, in sync mode, before it is streamed on.
+  const messages: Message[] = history.map((m, i) => ({
+    role: m.role,
+    content: GUARDRAIL_ID && i === history.length - 1 ? [{ guardContent: { text: { text: m.content } } }] : [{ text: m.content }],
+  }));
   let totalIn = 0;
   let totalOut = 0;
 
@@ -80,6 +89,7 @@ export async function runTurn(agent: AgentDef, history: ClientMessage[], emit: (
         messages,
         toolConfig: { tools: toBedrockTools(agent.tools) },
         inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
+        guardrailConfig: GUARDRAIL_ID ? { guardrailIdentifier: GUARDRAIL_ID, guardrailVersion: GUARDRAIL_VERSION, streamProcessingMode: "sync" } : undefined,
       }),
     );
     if (!res.stream) throw new Error("Bedrock returned no stream");

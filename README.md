@@ -72,13 +72,16 @@ Python twin (once: `python3 -m venv .venv && .venv/bin/pip install boto3`):
 AWS_REGION=us-east-2 .venv/bin/python api-python/scripts/smoke.py claims
 ```
 
-Both of those run the runtime in-process. To exercise the deployed path instead (CloudFront's
-signed requests to the Lambda URL, the edge function, the budget table, streaming), run the same
-questions against the live site. It is the post-deploy check; seven turns cost about 17 cents,
-and it exits non-zero if any turn errors, is rate-limited, or does not end normally.
+Both of those run the runtime in-process, with no guardrail. To exercise the deployed path instead
+(CloudFront's signed requests to the Lambda URL, the edge function, the budget table, the guardrail,
+streaming), run the same questions plus the guardrail test set against the live site. It is the
+post-deploy check; a full run is about twelve turns (~30 cents) and exits non-zero if any turn fails
+its check.
 
 ```
-cd api && node scripts/smoke-live.mjs            # or: node scripts/smoke-live.mjs claims
+cd api && node scripts/smoke-live.mjs                # seven questions + guardrail cases
+cd api && node scripts/smoke-live.mjs claims group   # a subset of the questions
+cd api && node scripts/smoke-live.mjs --guardrails   # only the guardrail cases
 ```
 
 ## Wire protocol
@@ -136,9 +139,27 @@ per turn and bounded by reserved concurrency; the AWS Budget below is what watch
 
 CSP (`default-src 'self'`, fonts self-hosted), HSTS, nosniff, frame-ancestors none, TLS 1.2+,
 IAM-only function URLs behind CloudFront OAC, private S3 with OAC, least-privilege Lambda roles
-(Bedrock invoke + one DynamoDB table), CloudFront access logs kept 30 days, no server-side storage
-of conversations, Bedrock invocation logging off. Review notes from 2026-09-10 are in the commit
+(Bedrock invoke + one guardrail + one DynamoDB table), CloudFront access logs kept 30 days, no
+server-side storage of conversations, Bedrock invocation logging off. Review notes from 2026-09-10 are in the commit
 history.
+
+**Guardrails.** A Bedrock Guardrail (`Guardrail` in `template.yaml`) is applied to every model call in
+both Lambdas. It denies the *medical advice* topic (diagnosing, assessing symptoms, advising for or
+against a treatment or drug; asking whether care is covered is explicitly not that topic), filters
+hate, insults, sexual content, violence, misconduct and prompt attacks on input, and masks
+identifiers that never belong in a health-plan answer (SSN, card and bank numbers, passport, driver
+ID, passwords, PINs, AWS keys) in both directions. Only the visitor's latest message is assessed on
+input, by wrapping it in a `guardContent` block, so tool results and earlier turns are not
+re-classified; output is assessed in sync streaming mode before it reaches the browser. The system
+prompt rules still apply on top; the guardrail is what turns the clinical rule from a request into a
+filter. It runs the `DRAFT` version so a template change takes effect on deploy; a real product
+pins a numbered `AWS::Bedrock::GuardrailVersion`. Cost is roughly a tenth of a cent per turn.
+
+The guardrail has a test set: `api/scripts/smoke-live.mjs --guardrails` sends a symptom question
+(must get the nurse line, not a drug), a coverage question about a symptom (must still be answered),
+a prompt-injection attempt (must not leak the system prompt), a request for another member's claims
+(must not list any), and a typed SSN (must not be echoed or reach a tool). Run it after any change to
+the prompt or the guardrail.
 
 **Nothing a visitor types outlives the request.** Simulated writes (appeals, contact changes,
 enrollments) act on a per-request copy of the synthetic data (`api/src/state.ts`,

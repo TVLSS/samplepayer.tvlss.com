@@ -46,6 +46,18 @@ test("both chat functions: arm64, 90 s, reserved concurrency, Bedrock + usage-ta
   });
 });
 
+test("guardrail: medical-advice topic denied, prompt attacks filtered, both functions use it", () => {
+  const t = synth();
+  t.resourceCountIs("AWS::Bedrock::Guardrail", 1);
+  t.hasResourceProperties("AWS::Bedrock::Guardrail", {
+    TopicPolicyConfig: { TopicsConfig: [Match.objectLike({ Name: "MedicalAdvice", Type: "DENY" })] },
+    ContentPolicyConfig: { FiltersConfig: Match.arrayWith([Match.objectLike({ Type: "PROMPT_ATTACK", InputStrength: "HIGH" })]) },
+    SensitiveInformationPolicyConfig: { PiiEntitiesConfig: Match.arrayWith([Match.objectLike({ Type: "US_SOCIAL_SECURITY_NUMBER", Action: "ANONYMIZE" })]) },
+  });
+  t.allResourcesProperties("AWS::Lambda::Function", { Environment: { Variables: Match.objectLike({ GUARDRAIL_ID: Match.anyValue(), GUARDRAIL_VERSION: "DRAFT" }) } });
+  t.allResourcesProperties("AWS::IAM::Policy", { PolicyDocument: { Statement: Match.arrayWith([Match.objectLike({ Action: "bedrock:ApplyGuardrail" })]) } });
+});
+
 test("CloudFront gets both Lambda permissions on the active backend", () => {
   const t = synth();
   t.hasResourceProperties("AWS::Lambda::Permission", { Action: "lambda:InvokeFunctionUrl", Principal: "cloudfront.amazonaws.com" });
@@ -109,5 +121,5 @@ test("DNS: A and AAAA aliases to the distribution; outputs match template.yaml",
   t.resourceCountIs("AWS::Route53::RecordSet", 2);
   t.hasResourceProperties("AWS::Route53::RecordSet", { Type: "A", Name: "wellmark.tvlss.com.", AliasTarget: Match.objectLike({ HostedZoneId: Match.anyValue(), DNSName: Match.anyValue() }) });
   t.hasResourceProperties("AWS::Route53::RecordSet", { Type: "AAAA" });
-  for (const key of ["SiteUrl", "SiteBucketName", "DistributionId", "ChatFunctionName", "ChatFunctionUrl", "ChatFunctionPyName", "ActiveBackend", "UsageTableName"]) t.hasOutput(key, {});
+  for (const key of ["SiteUrl", "SiteBucketName", "DistributionId", "ChatFunctionName", "ChatFunctionUrl", "ChatFunctionPyName", "ActiveBackend", "UsageTableName", "GuardrailId"]) t.hasOutput(key, {});
 });

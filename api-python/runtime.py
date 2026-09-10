@@ -16,6 +16,9 @@ REGION = os.environ.get("AWS_REGION", "us-east-2")
 MODEL_ID = os.environ.get("MODEL_ID", "us.anthropic.claude-sonnet-5")
 MAX_TOOL_ROUNDS = int(os.environ.get("MAX_TOOL_ROUNDS", "8"))
 MAX_OUTPUT_TOKENS = int(os.environ.get("MAX_OUTPUT_TOKENS", "1200"))
+# Bedrock Guardrail (template.yaml). Empty id = off, which is what the in-process smoke script gets.
+GUARDRAIL_ID = os.environ.get("GUARDRAIL_ID", "")
+GUARDRAIL_VERSION = os.environ.get("GUARDRAIL_VERSION", "DRAFT")
 
 _client = boto3.client("bedrock-runtime", region_name=REGION)
 
@@ -46,7 +49,14 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
     turn: the budget is enforced per model call, not per turn."""
     state = new_turn_state()
     tools_by_name = {t.name: t for t in agent.tools}
-    messages: list[dict[str, Any]] = [{"role": m["role"], "content": [{"text": m["content"]}]} for m in history]
+    # Only the visitor's latest message is wrapped for input assessment; with a guardContent
+    # block present the guardrail leaves earlier turns and tool results alone. Output is
+    # always assessed, in sync mode, before it is returned.
+    messages: list[dict[str, Any]] = [
+        {"role": m["role"], "content": [{"guardContent": {"text": {"text": m["content"]}}}] if GUARDRAIL_ID and i == len(history) - 1 else [{"text": m["content"]}]}
+        for i, m in enumerate(history)
+    ]
+    guard = {"guardrailConfig": {"guardrailIdentifier": GUARDRAIL_ID, "guardrailVersion": GUARDRAIL_VERSION, "streamProcessingMode": "sync"}} if GUARDRAIL_ID else {}
     total_in = total_out = 0
 
     for round_ in range(MAX_TOOL_ROUNDS + 1):
@@ -60,6 +70,7 @@ def run_turn(agent, history: list[dict[str, str]], reserve_call: Callable[[], bo
             messages=messages,
             toolConfig={"tools": _bedrock_tools(agent)},
             inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS},
+            **guard,
         )
         assistant_content: list[dict[str, Any]] = []
         stop_reason = "end_turn"

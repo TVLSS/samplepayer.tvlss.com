@@ -60,6 +60,56 @@ Conditions:
   HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
 
 Resources:
+  # Bedrock Guardrail applied to every model call in both Lambdas. Input: only the
+  # visitor's latest message is assessed (the runtime wraps it in guardContent, so
+  # tool results are not). Output: assessed in sync streaming mode before it reaches
+  # the browser. DRAFT is the working version, so a template change takes effect on
+  # deploy without a new GuardrailVersion resource; pin a numbered version for a
+  # real product.
+  Guardrail:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: !Sub "${AWS::StackName}-guardrail"
+      Description: Denies medical advice, common abuse categories and prompt attacks; masks financial and government identifiers.
+      BlockedInputMessaging: "I can't help with that here. If it's about symptoms or treatment, please call the 24/7 nurse line at 1-800-555-0142, or 911 in an emergency. I can help with coverage, claims and your plan."
+      BlockedOutputsMessaging: "I can't help with that here. If it's about symptoms or treatment, please call the 24/7 nurse line at 1-800-555-0142, or 911 in an emergency. I can help with coverage, claims and your plan."
+      TopicPolicyConfig:
+        TopicsConfig:
+          - Name: MedicalAdvice
+            Type: DENY
+            Definition: Diagnosing conditions, assessing symptoms, or advising for or against a treatment, drug, dose or procedure for a person's health. Asking whether care is covered is not this topic.
+            Examples:
+              - "I've had chest pain for three days, what should I take for it?"
+              - "Is 800mg of ibuprofen safe with my blood pressure medication?"
+              - "Do these symptoms sound like strep throat?"
+              - "Should I get the MRI or just try rest first?"
+              - "Which is better for my back, physical therapy or a steroid injection?"
+      ContentPolicyConfig:
+        FiltersConfig:
+          - { Type: HATE, InputStrength: HIGH, OutputStrength: HIGH }
+          - { Type: INSULTS, InputStrength: HIGH, OutputStrength: HIGH }
+          - { Type: SEXUAL, InputStrength: HIGH, OutputStrength: HIGH }
+          - { Type: VIOLENCE, InputStrength: HIGH, OutputStrength: HIGH }
+          - { Type: MISCONDUCT, InputStrength: HIGH, OutputStrength: HIGH }
+          - { Type: PROMPT_ATTACK, InputStrength: HIGH, OutputStrength: NONE }
+      SensitiveInformationPolicyConfig:
+        # Only identifiers that never legitimately appear in a health-plan answer.
+        # Names, addresses, phones and emails are the demo's own synthetic data.
+        PiiEntitiesConfig:
+          - { Type: US_SOCIAL_SECURITY_NUMBER, Action: ANONYMIZE }
+          - { Type: CREDIT_DEBIT_CARD_NUMBER, Action: ANONYMIZE }
+          - { Type: CREDIT_DEBIT_CARD_CVV, Action: ANONYMIZE }
+          - { Type: CREDIT_DEBIT_CARD_EXPIRY, Action: ANONYMIZE }
+          - { Type: US_BANK_ACCOUNT_NUMBER, Action: ANONYMIZE }
+          - { Type: US_BANK_ROUTING_NUMBER, Action: ANONYMIZE }
+          - { Type: INTERNATIONAL_BANK_ACCOUNT_NUMBER, Action: ANONYMIZE }
+          - { Type: US_PASSPORT_NUMBER, Action: ANONYMIZE }
+          - { Type: DRIVER_ID, Action: ANONYMIZE }
+          - { Type: PASSWORD, Action: ANONYMIZE }
+          - { Type: PIN, Action: ANONYMIZE }
+          - { Type: AWS_ACCESS_KEY, Action: ANONYMIZE }
+          - { Type: AWS_SECRET_KEY, Action: ANONYMIZE }
+
   SiteBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -121,6 +171,8 @@ Resources:
           PRICE_IN_PER_MTOK: !Ref PriceInPerMtok
           PRICE_OUT_PER_MTOK: !Ref PriceOutPerMtok
           IP_TURNS_PER_HOUR: !Ref IpTurnsPerHour
+          GUARDRAIL_ID: !GetAtt Guardrail.GuardrailId
+          GUARDRAIL_VERSION: DRAFT
       FunctionUrlConfig:
         AuthType: AWS_IAM
         InvokeMode: RESPONSE_STREAM
@@ -133,6 +185,9 @@ Resources:
               Resource:
                 - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*"
                 - "arn:aws:bedrock:*::foundation-model/anthropic.*"
+            - Effect: Allow
+              Action: bedrock:ApplyGuardrail
+              Resource: !GetAtt Guardrail.GuardrailArn
             - Effect: Allow
               Action: [dynamodb:UpdateItem, dynamodb:GetItem]
               Resource: !GetAtt UsageTable.Arn
@@ -179,6 +234,8 @@ Resources:
           PRICE_IN_PER_MTOK: !Ref PriceInPerMtok
           PRICE_OUT_PER_MTOK: !Ref PriceOutPerMtok
           IP_TURNS_PER_HOUR: !Ref IpTurnsPerHour
+          GUARDRAIL_ID: !GetAtt Guardrail.GuardrailId
+          GUARDRAIL_VERSION: DRAFT
       FunctionUrlConfig:
         AuthType: AWS_IAM
         InvokeMode: BUFFERED
@@ -191,6 +248,9 @@ Resources:
               Resource:
                 - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*"
                 - "arn:aws:bedrock:*::foundation-model/anthropic.*"
+            - Effect: Allow
+              Action: bedrock:ApplyGuardrail
+              Resource: !GetAtt Guardrail.GuardrailArn
             - Effect: Allow
               Action: [dynamodb:UpdateItem, dynamodb:GetItem]
               Resource: !GetAtt UsageTable.Arn
@@ -476,3 +536,5 @@ Outputs:
     Value: !Ref Backend
   UsageTableName:
     Value: !Ref UsageTable
+  GuardrailId:
+    Value: !GetAtt Guardrail.GuardrailId

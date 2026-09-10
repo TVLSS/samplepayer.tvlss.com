@@ -30,6 +30,7 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as cwactions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as budgets from "aws-cdk-lib/aws-budgets";
+import * as bedrock from "aws-cdk-lib/aws-bedrock";
 
 export interface WellmarkDemoStackProps extends cdk.StackProps {
   domainName: string;
@@ -75,6 +76,38 @@ export class WellmarkDemoStack extends cdk.Stack {
       autoDeleteObjects: false,
     });
 
+    // ---- Guardrail (see template.yaml for the reasoning; DRAFT is the working version) ----
+    const blockedMessage = "I can't help with that here. If it's about symptoms or treatment, please call the 24/7 nurse line at 1-800-555-0142, or 911 in an emergency. I can help with coverage, claims and your plan.";
+    const guardrail = new bedrock.CfnGuardrail(this, "Guardrail", {
+      name: `${this.stackName}-guardrail`,
+      description: "Denies medical advice, common abuse categories and prompt attacks; masks financial and government identifiers.",
+      blockedInputMessaging: blockedMessage,
+      blockedOutputsMessaging: blockedMessage,
+      topicPolicyConfig: { topicsConfig: [{
+        name: "MedicalAdvice", type: "DENY",
+        definition: "Diagnosing conditions, assessing symptoms, or advising for or against a treatment, drug, dose or procedure for a person's health. Asking whether care is covered is not this topic.",
+        examples: [
+          "I've had chest pain for three days, what should I take for it?",
+          "Is 800mg of ibuprofen safe with my blood pressure medication?",
+          "Do these symptoms sound like strep throat?",
+          "Should I get the MRI or just try rest first?",
+          "Which is better for my back, physical therapy or a steroid injection?",
+        ],
+      }] },
+      contentPolicyConfig: { filtersConfig: [
+        ...["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "MISCONDUCT"].map((type) => ({ type, inputStrength: "HIGH", outputStrength: "HIGH" })),
+        { type: "PROMPT_ATTACK", inputStrength: "HIGH", outputStrength: "NONE" },
+      ] },
+      // Only identifiers that never legitimately appear in a health-plan answer; names, addresses,
+      // phones and emails are the demo's own synthetic data.
+      sensitiveInformationPolicyConfig: { piiEntitiesConfig: [
+        "US_SOCIAL_SECURITY_NUMBER", "CREDIT_DEBIT_CARD_NUMBER", "CREDIT_DEBIT_CARD_CVV", "CREDIT_DEBIT_CARD_EXPIRY",
+        "US_BANK_ACCOUNT_NUMBER", "US_BANK_ROUTING_NUMBER", "INTERNATIONAL_BANK_ACCOUNT_NUMBER", "US_PASSPORT_NUMBER",
+        "DRIVER_ID", "PASSWORD", "PIN", "AWS_ACCESS_KEY", "AWS_SECRET_KEY",
+      ].map((type) => ({ type, action: "ANONYMIZE" })) },
+    });
+    const guardrailAccess = new iam.PolicyStatement({ actions: ["bedrock:ApplyGuardrail"], resources: [guardrail.attrGuardrailArn] });
+
     // ---- Chat Lambdas ----
     const bedrockAccess = new iam.PolicyStatement({
       actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
@@ -98,6 +131,8 @@ export class WellmarkDemoStack extends cdk.Stack {
       PRICE_IN_PER_MTOK: String(props.priceInPerMtok),
       PRICE_OUT_PER_MTOK: String(props.priceOutPerMtok),
       IP_TURNS_PER_HOUR: String(props.ipTurnsPerHour),
+      GUARDRAIL_ID: guardrail.attrGuardrailId,
+      GUARDRAIL_VERSION: "DRAFT",
     };
     const usageAccess = new iam.PolicyStatement({
       actions: ["dynamodb:UpdateItem", "dynamodb:GetItem"],
@@ -130,6 +165,7 @@ export class WellmarkDemoStack extends cdk.Stack {
     });
     chatFunction.addToRolePolicy(bedrockAccess);
     chatFunction.addToRolePolicy(usageAccess);
+    chatFunction.addToRolePolicy(guardrailAccess);
     const chatFunctionUrl = chatFunction.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.AWS_IAM,
       invokeMode: lambda.InvokeMode.RESPONSE_STREAM,
@@ -147,6 +183,7 @@ export class WellmarkDemoStack extends cdk.Stack {
     });
     chatFunctionPy.addToRolePolicy(bedrockAccess);
     chatFunctionPy.addToRolePolicy(usageAccess);
+    chatFunctionPy.addToRolePolicy(guardrailAccess);
     const chatFunctionPyUrl = chatFunctionPy.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.AWS_IAM,
       invokeMode: lambda.InvokeMode.BUFFERED,
@@ -315,5 +352,6 @@ export class WellmarkDemoStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ChatFunctionPyName", { value: chatFunctionPy.functionName });
     new cdk.CfnOutput(this, "ActiveBackend", { value: props.backend });
     new cdk.CfnOutput(this, "UsageTableName", { value: usageTable.tableName });
+    new cdk.CfnOutput(this, "GuardrailId", { value: guardrail.attrGuardrailId });
   }
 }

@@ -8,6 +8,7 @@ Demo site pitching seven health-plan chatbot/agent builds. Read `README.md` firs
   `kind: "write"` tools must say "WRITES:" in the description so the prompt's confirm-first rule applies.
 - The Python twin in `api-python/` must stay behaviourally identical to `api/src`; change both or note why not.
 - Model is a stack parameter (`ModelId`). Bedrock model ids must be checked in us-east-2 before use.
+- A Bedrock Guardrail (`Guardrail` in `template.yaml`, DRAFT version) wraps every model call. After changing it or any system prompt, run `api/scripts/smoke-live.mjs --guardrails` against the deployed site.
 - Daily spend cap lives in `api/src/budget.ts` and `api-python/budget.py`; keep them identical. Prices are stack parameters.
 - `.env` holds account-specific values (cert, zone, alert email). Never commit it.
 - Synthetic data only. Do not add real provider, employer or plan names.
