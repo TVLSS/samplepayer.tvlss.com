@@ -1,4 +1,4 @@
-// Page copy for wellmark.tvlss.com. Tool tables come from api/src/agents at build time.
+// Page copy for samplepayer.tvlss.com. Tool tables come from api/src/agents at build time.
 
 export const home = {
   h1: "Seven assistants for a health plan's front line.",

@@ -66,12 +66,12 @@ ${noindex ? '<meta name="robots" content="noindex">' : ""}
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>Wellmark agent demos <small>by TVLSS</small></a>
+  <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>Sample Payer agent demos <small>by TVLSS</small></a>
   <nav class="nav" aria-label="Demos">${pages.map((p) => `<a href="/${p.id}"${p.id === current ? ' aria-current="page"' : ""}>${esc(p.nav)}</a>`).join("")}</nav>
 </div></header>
 ${body}
 <footer><div class="wrap">
-  <p>Independent demonstration built by TVLSS to show how each assistant would work. Not affiliated with, endorsed by, or connected to Wellmark. Every member, employer, provider, claim and dollar amount on this site is fictional. Conversations are not stored.</p>
+  <p>Independent demonstration built by TVLSS to show how each assistant would work. Not affiliated with, endorsed by, or connected to any health plan or insurer. Every member, employer, provider, claim and dollar amount on this site is fictional. Conversations are not stored.</p>
   <p>Built on AWS serverless in us-east-2: S3, CloudFront, Lambda, and Claude on Amazon Bedrock. <a href="/">All demos</a></p>
 </div></footer>
 </body>
@@ -120,7 +120,7 @@ function demoPage(p) {
   </section>
 </main>
 <script src="${asset("chat.js")}" defer></script>`;
-  return layout({ title: `${p.nav} · Wellmark agent demos`, description: p.tagline, body, current: p.id });
+  return layout({ title: `${p.nav} · Sample Payer agent demos`, description: p.tagline, body, current: p.id });
 }
 
 function homePage() {
@@ -175,11 +175,11 @@ function homePage() {
   </div>
 </div></section>
 <script src="${asset("hero.js")}" defer></script>`;
-  return layout({ title: "Wellmark agent demos", description: home.lede, body, current: null });
+  return layout({ title: "Sample Payer agent demos", description: home.lede, body, current: null });
 }
 
 for (const p of pages) writeFileSync(path.join(out, `${p.id}.html`), demoPage(p));
 writeFileSync(path.join(out, "index.html"), homePage());
-writeFileSync(path.join(out, "404.html"), layout({ title: "Not found · Wellmark agent demos", description: "Page not found", current: null, body: `<main class="wrap"><section class="hero"><h1>That page isn't here.</h1><p class="lede">Pick a demo from the menu, or <a href="/">start at the front</a>.</p></section></main>` }));
+writeFileSync(path.join(out, "404.html"), layout({ title: "Not found · Sample Payer agent demos", description: "Page not found", current: null, body: `<main class="wrap"><section class="hero"><h1>That page isn't here.</h1><p class="lede">Pick a demo from the menu, or <a href="/">start at the front</a>.</p></section></main>` }));
 writeFileSync(path.join(out, "robots.txt"), "User-agent: *\nDisallow: /\n");
 console.log(`built ${pages.length + 2} pages -> site/`);

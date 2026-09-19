@@ -11,7 +11,7 @@
 // SITE_URL overrides the target. Exits non-zero if any turn fails its check.
 import { createHash } from "node:crypto";
 
-const SITE = process.env.SITE_URL ?? "https://wellmark.tvlss.com";
+const SITE = process.env.SITE_URL ?? "https://samplepayer.tvlss.com";
 const NURSE = /1-800-555-0142|\b911\b/;
 
 const questions = {

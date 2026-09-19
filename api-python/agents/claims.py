@@ -51,7 +51,7 @@ def _eob(i, _s):
         return {"error": "Unknown claim"}
     if not c["eobAvailable"]:
         return {"claimId": c["claimId"], "eobAvailable": False, "summary": "EOB is produced when the claim finishes processing"}
-    return {"claimId": c["claimId"], "eobAvailable": True, "downloadUrl": f"https://wellmark.tvlss.com/eob/{c['claimId']}.pdf", "issued": c["processedDate"], "totals": {"billed": sum(l["billed"] for l in c["lines"]), "allowed": sum(l["allowed"] or 0 for l in c["lines"]), "planPaid": sum(l["planPaid"] or 0 for l in c["lines"]), "youOwe": sum(l["memberResponsibility"] or 0 for l in c["lines"])}}
+    return {"claimId": c["claimId"], "eobAvailable": True, "downloadUrl": f"https://samplepayer.tvlss.com/eob/{c['claimId']}.pdf", "issued": c["processedDate"], "totals": {"billed": sum(l["billed"] for l in c["lines"]), "allowed": sum(l["allowed"] or 0 for l in c["lines"]), "planPaid": sum(l["planPaid"] or 0 for l in c["lines"]), "youOwe": sum(l["memberResponsibility"] or 0 for l in c["lines"])}}
 
 
 def _appeal(i, s):

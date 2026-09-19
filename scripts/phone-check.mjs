@@ -10,7 +10,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const SITE = process.env.SITE_URL ?? "https://wellmark.tvlss.com";
+const SITE = process.env.SITE_URL ?? "https://samplepayer.tvlss.com";
 const [outDir = "phone-check", ...paths] = process.argv.slice(2);
 const pages = paths.length ? paths : ["/", "/claims", "/group"];
 const port = 9300 + Math.floor(Math.random() * 500);

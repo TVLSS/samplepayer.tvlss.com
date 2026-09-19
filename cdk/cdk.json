@@ -1,8 +1,8 @@
 {
   "app": "npx tsx bin/app.ts",
   "context": {
-    "stackName": "wellmark-demo-cdk",
-    "domainName": "wellmark.tvlss.com",
+    "stackName": "samplepayer-demo-cdk",
+    "domainName": "samplepayer.tvlss.com",
     "modelId": "us.anthropic.claude-sonnet-5",
     "maxOutputTokens": "1200",
     "reservedConcurrency": 5,

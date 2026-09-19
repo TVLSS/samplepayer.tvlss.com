@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build and deploy wellmark.tvlss.com: SAM stack (Lambda, CloudFront, DNS), then
+# Build and deploy samplepayer.tvlss.com: SAM stack (Lambda, CloudFront, DNS), then
 # the static site to S3 with a CloudFront invalidation. Idempotent.
 set -euo pipefail
 cd "$(dirname "$0")"
-STACK=wellmark-demo
+STACK=samplepayer-demo
 REGION=us-east-2
 
 # Account-specific values live in .env (gitignored). Copy .env.example to start.
@@ -38,4 +38,4 @@ aws s3 sync site/ "s3://$BUCKET" --delete --region "$REGION" \
 echo "== invalidate $DIST"
 aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*" --query 'Invalidation.Id' --output text
 
-echo "== done: https://wellmark.tvlss.com"
+echo "== done: https://samplepayer.tvlss.com"

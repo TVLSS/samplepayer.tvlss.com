@@ -1,7 +1,7 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "wellmark-demo"
+stack_name = "samplepayer-demo"
 region = "us-east-2"
 
 [default.build.parameters]

@@ -3,10 +3,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as cdk from "aws-cdk-lib";
 import { Template, Match } from "aws-cdk-lib/assertions";
-import { WellmarkDemoStack } from "../lib/wellmark-demo-stack.js";
+import { SamplePayerDemoStack } from "../lib/samplepayer-demo-stack.js";
 
 const base = {
-  domainName: "wellmark.tvlss.com",
+  domainName: "samplepayer.tvlss.com",
   certificateArn: "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000",
   hostedZoneId: "Z0000000000000000000",
   modelId: "us.anthropic.claude-sonnet-5",
@@ -19,9 +19,9 @@ const base = {
   env: { account: "123456789012", region: "us-east-2" },
 } as const;
 
-function synth(extra: Partial<ConstructorParameters<typeof WellmarkDemoStack>[2]> = {}) {
+function synth(extra: Partial<ConstructorParameters<typeof SamplePayerDemoStack>[2]> = {}) {
   const app = new cdk.App();
-  return Template.fromStack(new WellmarkDemoStack(app, "wellmark-demo-test", { ...base, backend: "typescript", ...extra }));
+  return Template.fromStack(new SamplePayerDemoStack(app, "samplepayer-demo-test", { ...base, backend: "typescript", ...extra }));
 }
 
 test("refuses a certificate outside us-east-1", () => {
@@ -74,7 +74,7 @@ test("Backend=python routes /api/* to the Python function URL", () => {
 test("distribution: alias, TLS 1.2, security headers on both behaviors, logging, 404 mapping", () => {
   const t = synth();
   t.hasResourceProperties("AWS::CloudFront::Distribution", { DistributionConfig: Match.objectLike({
-    Aliases: ["wellmark.tvlss.com"], HttpVersion: "http2and3", IPV6Enabled: true, PriceClass: "PriceClass_100",
+    Aliases: ["samplepayer.tvlss.com"], HttpVersion: "http2and3", IPV6Enabled: true, PriceClass: "PriceClass_100",
     ViewerCertificate: Match.objectLike({ MinimumProtocolVersion: "TLSv1.2_2021", SslSupportMethod: "sni-only" }),
     Logging: Match.objectLike({ Prefix: "cloudfront/" }),
     DefaultCacheBehavior: Match.objectLike({ ViewerProtocolPolicy: "redirect-to-https", ResponseHeadersPolicyId: Match.anyValue() }),
@@ -119,7 +119,7 @@ test("alerts exist only when an email is configured", () => {
 test("DNS: A and AAAA aliases to the distribution; outputs match template.yaml", () => {
   const t = synth();
   t.resourceCountIs("AWS::Route53::RecordSet", 2);
-  t.hasResourceProperties("AWS::Route53::RecordSet", { Type: "A", Name: "wellmark.tvlss.com.", AliasTarget: Match.objectLike({ HostedZoneId: Match.anyValue(), DNSName: Match.anyValue() }) });
+  t.hasResourceProperties("AWS::Route53::RecordSet", { Type: "A", Name: "samplepayer.tvlss.com.", AliasTarget: Match.objectLike({ HostedZoneId: Match.anyValue(), DNSName: Match.anyValue() }) });
   t.hasResourceProperties("AWS::Route53::RecordSet", { Type: "AAAA" });
   for (const key of ["SiteUrl", "SiteBucketName", "DistributionId", "ChatFunctionName", "ChatFunctionUrl", "ChatFunctionPyName", "ActiveBackend", "UsageTableName", "GuardrailId"]) t.hasOutput(key, {});
 });

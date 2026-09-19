@@ -1,4 +1,4 @@
-# wellmark.tvlss.com
+# samplepayer.tvlss.com
 
 Demonstration site: seven chatbot / agent demos for a health plan (benefits, claims,
 membership, group, accumulations, health services, provider network). Each page is a
@@ -9,7 +9,7 @@ as it happens. All data is synthetic.
 
 | Path | What |
 | --- | --- |
-| `template.yaml`, `samconfig.toml` | AWS SAM stack `wellmark-demo` in us-east-2: S3 + CloudFront + streaming Lambda Function URL + Route 53 |
+| `template.yaml`, `samconfig.toml` | AWS SAM stack `samplepayer-demo` in us-east-2: S3 + CloudFront + streaming Lambda Function URL + Route 53 |
 | `api/` | TypeScript Lambda. `src/runtime.ts` runs the agent loop on Bedrock Converse; `src/agents/*.ts` define one agent each (system prompt + tools); `src/data.ts` is the synthetic dataset |
 | `api-python/` | Python twin of the runtime and agents (same wire protocol, same data) |
 | `site-src/` | Page copy (`pages.mjs`), stylesheet and browser script |
@@ -53,11 +53,11 @@ two IaC shapes honest against each other; it reads the same `.env` as `deploy.sh
 ```
 cd cdk && npm install
 npm test          # synth-level assertions (aws-cdk-lib/assertions)
-npm run synth     # writes cdk.out/wellmark-demo-cdk.template.json
-npm run diff      # against a deployed wellmark-demo-cdk stack, if one exists
+npm run synth     # writes cdk.out/samplepayer-demo-cdk.template.json
+npm run diff      # against a deployed samplepayer-demo-cdk stack, if one exists
 ```
 
-Do not `cdk deploy` while the SAM stack is up: both would claim the `wellmark.tvlss.com` alias
+Do not `cdk deploy` while the SAM stack is up: both would claim the `samplepayer.tvlss.com` alias
 and the Route 53 records. To switch, `sam delete` first, then `cdk deploy` and run the S3 sync and
 invalidation steps from `deploy.sh` against the new stack's outputs (the output keys are the same).
 

@@ -1,9 +1,9 @@
 {
-  "name": "wellmark-demo-api",
+  "name": "samplepayer-demo-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Streaming chat Lambda for wellmark.tvlss.com demo agents (Bedrock Converse, TypeScript)",
+  "description": "Streaming chat Lambda for samplepayer.tvlss.com demo agents (Bedrock Converse, TypeScript)",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/handler.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --external:@aws-sdk/*",

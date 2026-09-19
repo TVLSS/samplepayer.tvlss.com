@@ -4,7 +4,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as cdk from "aws-cdk-lib";
-import { WellmarkDemoStack } from "../lib/wellmark-demo-stack.js";
+import { SamplePayerDemoStack } from "../lib/samplepayer-demo-stack.js";
 
 function loadDotEnv(file: string): void {
   if (!fs.existsSync(file)) return;
@@ -24,10 +24,10 @@ if (!certificateArn || !hostedZoneId) {
   throw new Error("Set CERTIFICATE_ARN and HOSTED_ZONE_ID in ../.env (copy .env.example) or pass -c certificateArn=... -c hostedZoneId=...");
 }
 
-new WellmarkDemoStack(app, ctx("stackName") ?? "wellmark-demo-cdk", {
+new SamplePayerDemoStack(app, ctx("stackName") ?? "samplepayer-demo-cdk", {
   // Deploys to us-east-2 like the SAM stack. The certificate is validated to be in us-east-1 inside the stack.
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: "us-east-2" },
-  description: "wellmark.tvlss.com - CDK port of template.yaml. Static site on S3 + CloudFront; /api/* to a streaming Lambda Function URL running tool-using agents on Amazon Bedrock.",
+  description: "samplepayer.tvlss.com - CDK port of template.yaml. Static site on S3 + CloudFront; /api/* to a streaming Lambda Function URL running tool-using agents on Amazon Bedrock.",
   domainName: process.env.DOMAIN_NAME ?? ctx("domainName"),
   certificateArn,
   hostedZoneId,

@@ -39,7 +39,7 @@ def _update_contact(i, s):
 def _id_card(i, s):
     m = s.members[who(i.get("member_id"))]
     if i.get("format") == "digital":
-        r = {"requestId": f"CARD-{m['memberId']}-D", "member": m["name"], "format": "digital", "link": f"https://wellmark.tvlss.com/id-card/{m['memberId']}", "summary": "Digital ID card ready", "note": "Demo only."}
+        r = {"requestId": f"CARD-{m['memberId']}-D", "member": m["name"], "format": "digital", "link": f"https://samplepayer.tvlss.com/id-card/{m['memberId']}", "summary": "Digital ID card ready", "note": "Demo only."}
     else:
         r = {"requestId": f"CARD-{m['memberId']}-M", "member": m["name"], "format": "mail", "mailingTo": m["address"], "arrives": "7 to 10 business days", "summary": "Replacement card ordered", "note": "Demo only: nothing was actually ordered."}
     s.requests.append(r)

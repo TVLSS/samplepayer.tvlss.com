@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  wellmark.tvlss.com - TVLSS demonstration site for health-plan chatbot agents.
+  samplepayer.tvlss.com - TVLSS demonstration site for health-plan chatbot agents.
   Static site on S3 + CloudFront; /api/* goes to a streaming Lambda Function URL
   that runs tool-using agents on Amazon Bedrock. Deploys to us-east-2; the ACM
   certificate must be in us-east-1 (CloudFront constraint).
@@ -9,7 +9,7 @@ Description: >
 Parameters:
   DomainName:
     Type: String
-    Default: wellmark.tvlss.com
+    Default: samplepayer.tvlss.com
   HostedZoneId:
     Type: String
     Description: Route 53 hosted zone id for the domain (set in .env, see deploy.sh)
@@ -300,7 +300,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Condition: HasEmail
     Properties:
-      AlarmDescription: More than 150 chat invocations in an hour on wellmark.tvlss.com
+      AlarmDescription: More than 150 chat invocations in an hour on samplepayer.tvlss.com
       Namespace: AWS/Lambda
       MetricName: Invocations
       Dimensions: [{ Name: FunctionName, Value: !Ref ChatFunction }]
@@ -316,7 +316,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Condition: HasEmail
     Properties:
-      AlarmDescription: Chat Lambda errors on wellmark.tvlss.com
+      AlarmDescription: Chat Lambda errors on samplepayer.tvlss.com
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions: [{ Name: FunctionName, Value: !Ref ChatFunction }]

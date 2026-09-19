@@ -34,7 +34,7 @@ const tools: Tool[] = [
     name: "request_id_card", system: "MEMBERSHIP", kind: "write",
     description: "WRITES: orders a replacement ID card (mailed) or generates a digital card link. Confirm which member and which format before calling.",
     input_schema: { type: "object", properties: { member_id: { type: "string" }, format: { type: "string", enum: ["mail", "digital"] } }, required: ["format"], additionalProperties: false },
-    run: (i, s) => { const m = s.members[who(i.member_id) as keyof typeof s.members]; const r = i.format === "digital" ? { requestId: `CARD-${m.memberId}-D`, member: m.name, format: "digital", link: `https://wellmark.tvlss.com/id-card/${m.memberId}`, summary: "Digital ID card ready", note: "Demo only." } : { requestId: `CARD-${m.memberId}-M`, member: m.name, format: "mail", mailingTo: m.address, arrives: "7 to 10 business days", summary: "Replacement card ordered", note: "Demo only: nothing was actually ordered." }; s.requests.push(r); return r; },
+    run: (i, s) => { const m = s.members[who(i.member_id) as keyof typeof s.members]; const r = i.format === "digital" ? { requestId: `CARD-${m.memberId}-D`, member: m.name, format: "digital", link: `https://samplepayer.tvlss.com/id-card/${m.memberId}`, summary: "Digital ID card ready", note: "Demo only." } : { requestId: `CARD-${m.memberId}-M`, member: m.name, format: "mail", mailingTo: m.address, arrives: "7 to 10 business days", summary: "Replacement card ordered", note: "Demo only: nothing was actually ordered." }; s.requests.push(r); return r; },
   },
   {
     name: "change_pcp", system: "MEMBERSHIP", kind: "write",

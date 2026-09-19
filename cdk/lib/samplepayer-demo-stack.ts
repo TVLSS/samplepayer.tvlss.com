@@ -32,7 +32,7 @@ import * as cwactions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as bedrock from "aws-cdk-lib/aws-bedrock";
 
-export interface WellmarkDemoStackProps extends cdk.StackProps {
+export interface SamplePayerDemoStackProps extends cdk.StackProps {
   domainName: string;
   /** ACM certificate covering domainName. Must be in us-east-1 (CloudFront constraint). */
   certificateArn: string;
@@ -59,8 +59,8 @@ export interface WellmarkDemoStackProps extends cdk.StackProps {
 
 const REPO_ROOT = path.resolve(__dirname, "../..");
 
-export class WellmarkDemoStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: WellmarkDemoStackProps) {
+export class SamplePayerDemoStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: SamplePayerDemoStackProps) {
     super(scope, id, props);
 
     if (!/^arn:aws:acm:us-east-1:/.test(props.certificateArn)) {

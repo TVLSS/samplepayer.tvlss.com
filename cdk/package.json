@@ -1,8 +1,8 @@
 {
-  "name": "wellmark-demo-cdk",
+  "name": "samplepayer-demo-cdk",
   "version": "0.1.0",
   "private": true,
-  "description": "AWS CDK (TypeScript) port of template.yaml for wellmark.tvlss.com",
+  "description": "AWS CDK (TypeScript) port of template.yaml for samplepayer.tvlss.com",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "synth": "cdk synth --quiet",
